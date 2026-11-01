@@ -7,6 +7,7 @@ l'index de reconnaissance d'illustration chargé par `index.html`.
 - `build2.js` : télécharge les images `low.jpg` des cartes et calcule les miniatures, par tranche.
 - `merge.js` : fusionne les tranches en `thumbs.bin` / `thumbs.json`.
 - `export.js` : calcule les descripteurs et écrit l'index.
+- `fixcut.js` : corrige les cartes dont l'image française est coupée (bas vide ou noir) en utilisant l'image anglaise.
 - `gen.js`, `eval.js`, `e2e.js` : tests sur des photos simulées.
 
 ## Prérequis
@@ -30,6 +31,8 @@ for a in 0 3000 6000 9000 12000 15000 18000; do node build2.js $a $((a+3000)); d
 node merge.js
 # 3. Export → cartes-pokemon-index.bin / .json
 node export.js
+# 4. Empreintes des cartes dont l'image FR est coupée chez TCGdex → recalculées depuis l'image EN
+node fixcut.js
 ```
 
 `export.js` écrit dans `/workspace/` (la racine du repo). Changer ce chemin si besoin.
