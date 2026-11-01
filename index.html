@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#e3350d">
+<script>try{var t=JSON.parse(localStorage.getItem('cartoscan.prefs.v1')||'{}').theme;if(t&&t!=='rouge')document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CartoScan">
@@ -21,6 +22,13 @@
   --sa:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--navh:calc(58px + var(--sb));--card-r:4.8%/3.45%;color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
+:root[data-theme="anthracite"]{--red:#3b3e48;--red2:#30323b;--red3:#1d1e24}
+:root[data-theme="bleu"]{--red:#2d6cd2;--red2:#2457ac;--red3:#13346e}
+:root[data-theme="violet"]{--red:#7b4fc6;--red2:#623ca3;--red3:#3a2266}
+:root[data-theme="vert"]{--red:#2e9b58;--red2:#237c45;--red3:#14502b}
+.themes{display:flex;gap:10px;flex-wrap:wrap;padding:6px 0 4px}
+.themes button{width:44px;min-height:44px;padding:0;background:var(--sw)}
+.themes button[aria-pressed="true"]{outline:3px solid var(--yel);outline-offset:5px}
 html{touch-action:manipulation}
 html,body{margin:0;height:100%;background:var(--ink);color:var(--fg);font:16px/1.3 var(--tx);overflow:hidden;-webkit-font-smoothing:none}
 button{font:600 15px var(--tx);color:var(--ink);background:var(--cream);border:0;border-radius:0;min-height:46px;padding:0 14px;cursor:pointer;user-select:none;-webkit-user-select:none;
@@ -38,13 +46,12 @@ svg.pix{width:24px;height:24px;shape-rendering:crispEdges;display:block}
 .view.on{display:block;animation:fadein .18s ease-out}
 @keyframes fadein{from{opacity:0}}
 /* coque Pokédex : objectif bleu et voyants */
-.lens{width:46px;height:46px;flex:none;display:block}
+.lens{width:38px;height:38px;flex:none;display:block}
 .lens svg,.led svg{width:100%;height:100%;display:block;shape-rendering:crispEdges}
-.lens.big{width:84px;height:84px}
 .lens .glint{animation:glint 3.2s steps(1) infinite}
 @keyframes glint{0%,92%{opacity:1}93%,96%{opacity:0}}
 .leds{display:flex;gap:6px;align-items:flex-start;align-self:flex-start;margin-top:2px}
-.led{width:18px;height:18px;display:block;filter:brightness(.55) saturate(.6)}
+.led{width:14px;height:14px;display:block;filter:brightness(.55) saturate(.6)}
 .led.r{filter:none;animation:ledblink 2.4s steps(1) infinite}
 @keyframes ledblink{50%{filter:brightness(.55) saturate(.6)}}
 body:has(#frame.busy) .led.y{filter:none;animation:ledblink .35s steps(1) infinite}
@@ -83,11 +90,15 @@ body:has(#frame.hit) .led.g{filter:drop-shadow(0 0 5px var(--ok))}
 @keyframes spark{from{opacity:1;transform:translate(0,0) scale(1.4)}to{opacity:0;transform:translate(var(--x),var(--y)) scale(.4)}}
 @keyframes hide{to{opacity:0}}
 #top{position:absolute;left:0;right:0;top:0;z-index:3;filter:drop-shadow(0 4px 0 var(--ink))}
-#top .case,.dexhead .case{display:flex;align-items:center;gap:10px;padding:calc(var(--sa) + 6px) 12px 16px 12px;background:var(--red);
+.hdr .case{display:flex;align-items:center;gap:10px;text-align:left;height:calc(var(--sa) + 60px);padding:calc(var(--sa) + 5px) 10px 15px 12px;background:var(--red);
   background-image:linear-gradient(var(--red2),var(--red2)),linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22));background-size:100% 4px,100% 4px;background-position:0 100%,0 0;background-repeat:no-repeat;
-  clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),62% calc(100% - 14px),62% calc(100% - 10px),calc(62% - 4px) calc(100% - 10px),calc(62% - 4px) calc(100% - 5px),calc(62% - 8px) calc(100% - 5px),calc(62% - 8px) 100%,0 100%);margin:0;letter-spacing:.06em;color:var(--cream);text-shadow:2px 2px 0 var(--red3);white-space:nowrap}
-#top .id,.dexhead .id{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0;align-self:flex-start;padding-top:2px}
-#top h1 b{color:var(--yel);font-weight:400}
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),62% calc(100% - 10px),62% calc(100% - 7px),calc(62% - 3px) calc(100% - 7px),calc(62% - 3px) calc(100% - 4px),calc(62% - 6px) calc(100% - 4px),calc(62% - 6px) 100%,0 100%)}
+.hdr .ttl{font:12px var(--px);margin:0;letter-spacing:.06em;color:var(--cream);text-shadow:2px 2px 0 var(--red3);white-space:nowrap}
+.hdr .id{display:flex;flex-direction:column;justify-content:center;gap:6px;flex:1;min-width:0}
+.hdr .leds{margin:0;align-self:flex-start}
+.hdr .icon{width:38px;min-height:38px;height:38px;margin:3px 4px;align-self:center}
+.hdr .icon svg.pix{width:20px;height:20px}
+.hdr .ttl b{color:var(--yel);font-weight:400}
 .icon{width:46px;padding:0;display:grid;place-items:center;flex:none;align-self:flex-start}
 .icon.on{background:var(--yel)}
 #status{position:absolute;z-index:2;left:50%;transform:translateX(-50%);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;font:15px var(--tx);color:var(--lcdk);background:var(--lcd);padding:7px 14px;
@@ -125,7 +136,6 @@ nav small.bump{animation:bump .35s cubic-bezier(.3,1.8,.5,1)}
 /* collection */
 #col{overflow-y:auto;padding:0 0 calc(var(--navh) + 24px);background-color:var(--red);background-image:radial-gradient(rgba(0,0,0,.09) 1.2px,transparent 1.6px);background-size:8px 8px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .dexhead{position:sticky;top:0;z-index:2;filter:drop-shadow(0 4px 0 var(--ink))}
-.dexhead h2 b{color:var(--yel);font-weight:400}
 .tabs{display:flex;gap:6px;margin:0 0 16px}
 .tabs button{flex:1;min-height:42px;font:10px var(--px);background:var(--red2);color:var(--cream)}
 .tabs button.on{background:var(--ink2);color:var(--yel)}
@@ -215,9 +225,9 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
 .menu-actions button{width:calc(100% - 6px);text-align:left}
 #toast button{min-height:32px;margin:0 0 0 12px;padding:0 10px;font-size:14px}
 /* écran d'accueil */
-#gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:calc(var(--sa) + 20px) 22px calc(var(--sb) + 20px);background-color:var(--red);background-image:radial-gradient(rgba(0,0,0,.09) 1.2px,transparent 1.6px);background-size:8px 8px;overflow-y:auto}
+#gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:calc(var(--sa) + 84px) 22px calc(var(--sb) + 20px);background-color:var(--red);background-image:radial-gradient(rgba(0,0,0,.09) 1.2px,transparent 1.6px);background-size:8px 8px;overflow-y:auto}
 #gate .in{width:100%;max-width:400px;text-align:center}
-.gtop{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px}
+.gtop{position:absolute;left:0;right:0;top:0;filter:drop-shadow(0 4px 0 var(--ink))}
 .screen{background:var(--ink2);padding:22px 16px 18px;margin:4px;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),0 0 0 12px var(--cream2),0 0 0 16px var(--ink)}
 .gball{display:inline-block;animation:hop 1.2s steps(8) infinite}
 .gball svg{width:72px;height:72px}
@@ -231,7 +241,7 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
 #gate .err{color:var(--cream);background:var(--red3);font-size:15px;min-height:0;padding:0 10px}
 #gate .err:not(:empty){padding:8px 10px}
 #gate .fine{font-size:12.5px;color:#ffe3dc;margin-top:18px}
-#toast{position:fixed;left:50%;top:calc(var(--sa) + 92px);align-items:center;transform:translateX(-50%);background:var(--lcd);color:var(--lcdk);padding:9px 16px;font-size:15px;z-index:30;display:none;max-width:90vw;
+#toast{position:fixed;left:50%;top:calc(var(--sa) + 74px);align-items:center;transform:translateX(-50%);background:var(--lcd);color:var(--lcdk);padding:9px 16px;font-size:15px;z-index:30;display:none;max-width:90vw;
   box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),-3px 0 0 0 var(--ink),3px 0 0 0 var(--ink);animation:rin .25s cubic-bezier(.2,1.5,.45,1)}
 #install{position:fixed;inset:0;z-index:40;display:none;place-items:center;padding:24px;background:rgba(10,6,8,.6)}
 #install.on{display:grid;animation:fadein .2s}
@@ -258,9 +268,9 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
   <video id="video" playsinline muted autoplay></video>
   <div id="frame"><i></i><i></i><i></i><i></i><div class="scan"></div><div class="flash"></div>
     <div id="catch" aria-hidden="true"><span class="ball" data-pix="ball"></span><i class="sp"></i><i class="sp"></i><i class="sp"></i><i class="sp"></i><i class="sp"></i></div></div>
-  <div id="top"><div class="case">
+  <div id="top" class="hdr"><div class="case">
     <span class="lens" data-lens="54"></span>
-    <div class="id"><div class="leds" aria-hidden="true"><i class="led r" data-led="r"></i><i class="led y" data-led="y"></i><i class="led g" data-led="g"></i></div><h1>CARTO<b>SCAN</b></h1></div>
+    <div class="id"><div class="leds" aria-hidden="true"><i class="led r" data-led="r"></i><i class="led y" data-led="y"></i><i class="led g" data-led="g"></i></div><h1 class="ttl">CARTO<b>SCAN</b></h1></div>
     <button class="icon" id="searchBtn" aria-label="Chercher une carte à la main" data-pix="search"></button>
     <button class="icon" id="torch" aria-label="Lampe" hidden data-pix="torch"></button>
   </div></div>
@@ -273,9 +283,9 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
 </section>
 
 <section id="col" class="view" aria-label="Collection">
-  <div class="dexhead"><div class="case">
+  <div class="dexhead hdr"><div class="case">
     <span class="lens" data-lens="54"></span>
-    <div class="id"><div class="leds" aria-hidden="true"><i class="led r" data-led="r"></i><i class="led y" data-led="y"></i><i class="led g" data-led="g"></i></div><h2>CARTO<b>SCAN</b></h2></div>
+    <div class="id"><div class="leds" aria-hidden="true"><i class="led r" data-led="r"></i><i class="led y" data-led="y"></i><i class="led g" data-led="g"></i></div><h2 class="ttl">CARTO<b>SCAN</b></h2></div>
     <button class="icon" id="menuBtn" aria-label="Réglages et sauvegarde" data-pix="gear"></button>
   </div></div>
   <div class="colin">
@@ -312,10 +322,10 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
 </div></div>
 
 <div id="gate"><div class="in">
-  <div class="gtop"><span class="lens big" data-lens="84"></span><div class="leds" aria-hidden="true"><i class="led r" data-led="r"></i><i class="led y" data-led="y"></i><i class="led g" data-led="g"></i></div></div>
+  <div class="gtop hdr"><div class="case"><span class="lens" data-lens="54"></span><div class="id"><div class="leds" aria-hidden="true"><i class="led r" data-led="r"></i><i class="led y" data-led="y"></i><i class="led g" data-led="g"></i></div><span class="ttl">CARTO<b>SCAN</b></span></div></div></div>
   <div class="screen">
    <span class="gball" data-pix="ball"></span>
-   <h2>CARTO<b>SCAN</b></h2>
+   <h2>BIENVENUE<b> !</b></h2>
    <p>Montre une carte Pokémon à la caméra : elle est reconnue toute seule, puis rangée dans ton Dex avec son prix Cardmarket.</p>
   </div>
   <button class="pri" id="go">START</button>
@@ -327,6 +337,14 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
   <div class="bar"><h3>RÉGLAGES</h3><button class="icon" data-close aria-label="Fermer">×</button></div>
   <div class="opt"><div><b>Son de capture</b><span>Petit jingle 8-bit quand une carte est reconnue</span></div><button class="tog" data-pref="sound" aria-pressed="true">ON</button></div>
   <div class="opt"><div><b>Vibrations</b><span>Retour au toucher et à la capture</span></div><button class="tog" data-pref="vib" aria-pressed="true">ON</button></div>
+  <div class="opt"><div><b>Couleur du Pokédex</b><span id="themeName">Rouge Pokédex</span>
+   <div class="themes" role="radiogroup" aria-label="Couleur du Pokédex">
+    <button data-theme="rouge" style="--sw:#e3350d" aria-label="Rouge Pokédex"></button>
+    <button data-theme="anthracite" style="--sw:#3b3e48" aria-label="Anthracite"></button>
+    <button data-theme="bleu" style="--sw:#2d6cd2" aria-label="Bleu"></button>
+    <button data-theme="violet" style="--sw:#7b4fc6" aria-label="Violet"></button>
+    <button data-theme="vert" style="--sw:#2e9b58" aria-label="Vert"></button>
+   </div></div></div>
   <div class="menu-actions">
    <button id="mBackup">💾 Sauvegarder ma collection</button>
    <button id="mRestore">📂 Restaurer une sauvegarde</button>
@@ -370,7 +388,7 @@ document.addEventListener('error',e=>{const im=e.target;if(im.tagName==='IMG'&&i
 function toast(t,ms=2200,action){const e=$('#toast');e.textContent=t;
   if(action){const b=document.createElement('button');b.textContent=action.label;b.onclick=()=>{e.style.display='none';action.run()};e.append(b)}
   e.style.display='none';void e.offsetWidth;e.style.display='flex';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',ms)}
-const PREFS='cartoscan.prefs.v1';let prefs={sound:true,vib:true};try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREFS)||'{}'))}catch(e){}
+const PREFS='cartoscan.prefs.v1';let prefs={sound:true,vib:true,theme:'rouge'};try{Object.assign(prefs,JSON.parse(localStorage.getItem(PREFS)||'{}'))}catch(e){}
 const vib=p=>{if(prefs.vib)try{navigator.vibrate?.(p)}catch(e){}};
 
 /* ---------- collection (localStorage) ---------- */
@@ -822,6 +840,13 @@ function renderSets(items){
   $('#sets').querySelectorAll('.set').forEach(b=>b.onclick=()=>{setFilter=b.dataset.set;colTab='cards';renderCol()});
 }
 /* ---------- réglages et sauvegarde ---------- */
+const THEMES={rouge:['#e3350d','Rouge Pokédex'],anthracite:['#3b3e48','Anthracite'],bleu:['#2d6cd2','Bleu'],violet:['#7b4fc6','Violet'],vert:['#2e9b58','Vert']};
+function applyTheme(){const t=THEMES[prefs.theme]?prefs.theme:'rouge';
+  if(t==='rouge')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=t;
+  document.querySelector('meta[name="theme-color"]').content=THEMES[t][0];
+  document.querySelectorAll('.themes [data-theme]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.theme===t));$('#themeName').textContent=THEMES[t][1]}
+document.querySelectorAll('.themes [data-theme]').forEach(b=>b.onclick=()=>{prefs.theme=b.dataset.theme;try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch(e){}applyTheme();vib(15)});
+applyTheme();
 function syncPrefs(){document.querySelectorAll('[data-pref]').forEach(b=>{const on=!!prefs[b.dataset.pref];b.setAttribute('aria-pressed',on);b.textContent=on?'ON':'OFF'})}
 document.querySelectorAll('[data-pref]').forEach(b=>b.onclick=()=>{prefs[b.dataset.pref]=!prefs[b.dataset.pref];try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch(e){}syncPrefs();if(b.dataset.pref==='sound')beep();else vib(40)});
 $('#menuBtn').onclick=()=>{syncPrefs();$('#menu').classList.add('on')};
