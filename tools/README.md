@@ -7,6 +7,7 @@ l'index de reconnaissance d'illustration chargé par `index.html`.
 - `build2.js` : télécharge les images `low.jpg` des cartes et calcule les miniatures, par tranche.
 - `merge.js` : fusionne les tranches en `thumbs.bin` / `thumbs.json`.
 - `export.js` : calcule les descripteurs et écrit l'index.
+- `update.js` : ajoute à l'index les cartes du catalogue qui y manquent (nouvelle extension, nouvelles promos), sans tout recalculer. C'est la commande à lancer à chaque sortie d'extension.
 - `fixcut.js` : corrige les cartes dont l'image française est coupée (bas vide ou noir) en utilisant l'image anglaise.
 - `gen.js`, `eval.js`, `e2e.js` : tests sur des photos simulées.
 
@@ -19,6 +20,14 @@ Il faut aussi les catalogues de cartes de l'API TCGdex :
 - `/tmp/encards.json` : cartes en anglais (`https://api.tcgdex.net/v2/en/cards`), utilisé quand une carte n'a pas d'image en français.
 
 Chaque entrée contient au moins `id`, `localId` et `image`.
+
+## Ajouter une nouvelle extension
+
+```sh
+node update.js   # ajoute les cartes manquantes à cartes-pokemon-index.bin / .json
+```
+
+Puis incrémenter `?v=` dans `loadIndex()` (index.html). Les cartes dont TCGdex n'a pas encore d'image sont ignorées : relancer plus tard.
 
 ## Regénérer l'index
 

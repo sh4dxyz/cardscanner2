@@ -510,7 +510,7 @@ async function cachedBin(url){
 }
 function loadIndex(){
   return idxP||(idxP=(async()=>{
-    const [meta,bin]=await Promise.all([cachedJSON('cartes-pokemon-index.json?v=2',3650),cachedBin('cartes-pokemon-index.bin?v=2')]);
+    const [meta,bin]=await Promise.all([cachedJSON('cartes-pokemon-index.json?v=3',3650),cachedBin('cartes-pokemon-index.bin?v=3')]);
     if(meta.dl!==DL)throw new Error('index incompatible');
     IDS=meta.ids;IDX=new Int8Array(bin);NIDX=IDS.length;
   })().catch(e=>{idxP=null;throw e}));
