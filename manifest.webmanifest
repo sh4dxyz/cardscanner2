@@ -1,0 +1,17 @@
+{
+  "name": "CartoScan — cartes Pokémon",
+  "short_name": "CartoScan",
+  "description": "Scanne tes cartes Pokémon, range-les dans ton Dex et suis leur prix Cardmarket.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e3350d",
+  "theme_color": "#e3350d",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
