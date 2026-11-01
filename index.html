@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CartoScan — cartes Pokémon</title>
+<style>
+:root{--bg:#0d0f14;--pn:#171a22;--pn2:#20242f;--ln:#2c3140;--fg:#f2f4f8;--mut:#9aa2b4;--acc:#ffcb05;--ok:#3ddc84;--bad:#ff5d5d;--sa:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:var(--pn2);border:1px solid var(--ln);border-radius:12px;min-height:44px;padding:0 14px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button.pri{background:var(--acc);color:#151515;border-color:var(--acc);font-weight:700}
+button.ghost{background:transparent;border-color:transparent}
+input,select{font:inherit;color:var(--fg);background:var(--pn2);border:1px solid var(--ln);border-radius:12px;min-height:44px;padding:0 12px;width:100%}
+.view{position:fixed;inset:0;display:none}
+.view.on{display:block}
+/* scanner */
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#frame{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--sa) + 64px);aspect-ratio:63/88;width:min(70vw,calc((100dvh - var(--sa) - var(--sb) - 300px) * 63 / 88));border-radius:4.6%/3.3%;box-shadow:0 0 0 200vmax rgba(5,6,10,.62);pointer-events:none}
+#frame i{position:absolute;width:26px;height:26px;border:3px solid var(--fg);opacity:.9}
+#frame i:nth-child(1){left:-3px;top:-3px;border-right:0;border-bottom:0;border-top-left-radius:14px}
+#frame i:nth-child(2){right:-3px;top:-3px;border-left:0;border-bottom:0;border-top-right-radius:14px}
+#frame i:nth-child(3){left:-3px;bottom:-3px;border-right:0;border-top:0;border-bottom-left-radius:14px}
+#frame i:nth-child(4){right:-3px;bottom:-3px;border-left:0;border-top:0;border-bottom-right-radius:14px}
+#frame.busy i{border-color:var(--acc)}
+#frame.hit i{border-color:var(--ok)}
+#frame .scan{position:absolute;left:6%;right:6%;height:2px;background:linear-gradient(90deg,transparent,var(--acc),transparent);top:10%;opacity:0}
+#frame.busy .scan{opacity:.85;animation:sweep 1.6s ease-in-out infinite alternate}
+@keyframes sweep{to{top:90%}}
+#top{position:absolute;left:0;right:0;top:0;padding:calc(var(--sa) + 10px) 14px 0;display:flex;align-items:center;gap:8px}
+#top h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
+#top h1 b{color:var(--acc)}
+.icon{width:44px;padding:0;display:grid;place-items:center;background:rgba(23,26,34,.8)}
+.icon.on{background:var(--acc);color:#111}
+#status{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;font-size:13px;background:rgba(23,26,34,.88);border:1px solid var(--ln);border-radius:20px;padding:7px 14px}
+#result{position:absolute;left:12px;right:12px;bottom:calc(var(--sb) + 78px);background:rgba(23,26,34,.96);border:1px solid var(--ln);border-radius:18px;padding:10px;display:none;gap:12px;align-items:center}
+#result.on{display:flex;animation:pop .25s ease-out}
+@keyframes pop{from{transform:translateY(16px);opacity:0}}
+#result img{width:62px;aspect-ratio:63/88;border-radius:5px;object-fit:cover;background:var(--pn2);flex:none}
+#result .t{flex:1;min-width:0}
+#result .n{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#result .s{color:var(--mut);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#result .p{font-size:20px;font-weight:800;margin-top:2px}
+#result .p small{font-size:12px;font-weight:600;color:var(--ok);margin-left:6px}
+#result .act{display:flex;flex-direction:column;gap:6px}
+#result .act button{min-height:38px;font-size:13px;padding:0 12px}
+/* nav */
+nav{position:fixed;left:12px;right:12px;bottom:calc(var(--sb) + 12px);display:flex;gap:6px;background:rgba(23,26,34,.94);border:1px solid var(--ln);border-radius:18px;padding:5px;z-index:5}
+nav button{flex:1;border:0;background:transparent;min-height:44px;border-radius:13px;font-weight:600}
+nav button.on{background:var(--pn2);color:var(--acc)}
+nav small{color:var(--mut);font-weight:500;margin-left:4px}
+/* collection */
+#col{overflow-y:auto;padding:calc(var(--sa) + 14px) 14px calc(var(--sb) + 90px)}
+#col h2{margin:0 0 2px;font-size:22px}
+.tot{display:flex;gap:10px;margin:12px 0}
+.tot div{flex:1;background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:10px 12px}
+.tot b{display:block;font-size:20px}
+.tot span{color:var(--mut);font-size:12px}
+.tools{display:flex;gap:8px;margin-bottom:12px}
+.tools select{width:auto;flex:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.cell{background:var(--pn);border:1px solid var(--ln);border-radius:12px;padding:6px;position:relative;cursor:pointer;text-align:left;min-height:0}
+.cell img{width:100%;aspect-ratio:63/88;object-fit:cover;border-radius:6px;display:block;background:var(--pn2)}
+.cell .n{font-size:12px;font-weight:600;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .p{font-size:13px;font-weight:800;color:var(--acc)}
+.cell .q{position:absolute;top:10px;right:10px;background:#000c;border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700}
+.empty{color:var(--mut);text-align:center;padding:40px 10px}
+/* sheets */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:10}
+.sheet.on{display:block}
+.sheet .box{position:absolute;left:0;right:0;bottom:0;max-height:94dvh;overflow-y:auto;background:var(--pn);border-radius:20px 20px 0 0;border-top:1px solid var(--ln);padding:14px 16px calc(var(--sb) + 20px);animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+.sheet .bar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sheet .bar h3{flex:1;margin:0;font-size:18px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtop{display:flex;gap:14px}
+.dtop img{width:42%;max-width:220px;aspect-ratio:63/88;border-radius:9px;object-fit:cover;background:var(--pn2);flex:none}
+.meta{font-size:13px;color:var(--mut);display:grid;gap:4px;align-content:start}
+.meta b{color:var(--fg);font-weight:600}
+.big{font-size:28px;font-weight:800;color:var(--fg);margin:2px 0}
+.chg{font-weight:700;font-size:13px}
+.up{color:var(--ok)}.down{color:var(--bad)}
+.seg{display:flex;background:var(--pn2);border-radius:12px;padding:3px;gap:3px;margin:14px 0 8px}
+.seg button{flex:1;border:0;background:transparent;min-height:38px;border-radius:9px;font-size:13px}
+.seg button.on{background:var(--acc);color:#111;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+td{padding:7px 2px;border-bottom:1px solid var(--ln)}
+td:last-child{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.chart{background:var(--pn2);border-radius:14px;padding:10px;margin:12px 0}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--mut);margin-top:4px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.note{font-size:11.5px;color:var(--mut);margin:8px 0}
+.row{display:flex;gap:8px;align-items:center;margin-top:12px}
+.row .grow{flex:1}
+.qty{display:flex;align-items:center;gap:6px}
+.qty b{min-width:30px;text-align:center;font-size:18px}
+details{background:var(--pn2);border-radius:12px;padding:10px 12px;margin-top:10px}
+summary{cursor:pointer;font-weight:600;min-height:28px}
+.att{font-size:13px;margin:8px 0;color:var(--mut)}.att b{color:var(--fg)}
+.res{display:grid;gap:8px;margin-top:10px}
+.ritem{display:flex;gap:10px;align-items:center;text-align:left;padding:6px;min-height:0}
+.ritem img{width:46px;aspect-ratio:63/88;object-fit:cover;border-radius:4px;background:var(--pn);flex:none}
+.ritem span{color:var(--mut);font-size:12px;display:block}
+/* gate */
+#gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 30%,#232838,#0d0f14 70%)}
+#gate .in{max-width:420px;text-align:center}
+#gate h2{font-size:30px;margin:0 0 6px}
+#gate h2 b{color:var(--acc)}
+#gate p{color:var(--mut)}
+#gate button{width:100%;margin-top:14px;font-size:16px}
+#gate .err{color:var(--bad);font-size:13px;min-height:18px}
+.demo{width:120px;aspect-ratio:63/88;margin:0 auto 18px;border:3px solid var(--acc);border-radius:10px;position:relative;box-shadow:0 0 40px #ffcb0533}
+.demo::after{content:"";position:absolute;left:8%;right:8%;height:2px;background:var(--acc);top:15%;animation:sweep 1.6s ease-in-out infinite alternate}
+#toast{position:fixed;left:50%;top:calc(var(--sa) + 64px);transform:translateX(-50%);background:var(--pn2);border:1px solid var(--ln);border-radius:20px;padding:8px 16px;font-size:13px;z-index:30;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<section id="scan" class="view on" aria-label="Scanner">
+  <video id="video" playsinline muted autoplay></video>
+  <div id="frame"><i></i><i></i><i></i><i></i><div class="scan"></div></div>
+  <div id="top">
+    <h1>Carto<b>Scan</b></h1>
+    <button class="icon" id="searchBtn" aria-label="Chercher une carte à la main">⌕</button>
+    <button class="icon" id="torch" aria-label="Lampe" hidden>☀</button>
+  </div>
+  <div id="status">Préparation…</div>
+  <div id="result" role="status">
+    <img alt="">
+    <div class="t"><div class="n"></div><div class="s"></div><div class="p"></div></div>
+    <div class="act"><button id="rDetail">Détails ›</button><button id="rUndo" class="ghost">Annuler</button></div>
+  </div>
+</section>
+
+<section id="col" class="view" aria-label="Collection">
+  <h2>Ma collection</h2>
+  <div class="tot"><div><b id="tCount">0</b><span>cartes</span></div><div><b id="tValue">0 €</b><span>valeur estimée</span></div></div>
+  <div class="tools">
+    <input id="filter" placeholder="Filtrer…" aria-label="Filtrer la collection">
+    <select id="sort" aria-label="Trier"><option value="val">Valeur</option><option value="new">Récentes</option><option value="name">Nom</option><option value="set">Extension</option></select>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="row"><button class="grow" id="refreshAll">Actualiser les prix</button><button id="addManual">+ Ajouter à la main</button></div>
+  <p class="note" id="colNote"></p>
+</section>
+
+<nav><button id="navScan" class="on">Scanner</button><button id="navCol">Collection<small id="navCount"></small></button></nav>
+
+<div class="sheet" id="detail"><div class="box" role="dialog" aria-modal="true" aria-labelledby="dName">
+  <div class="bar"><h3 id="dName"></h3><button class="icon" data-close aria-label="Fermer">✕</button></div>
+  <div id="dBody"></div>
+</div></div>
+
+<div class="sheet" id="search"><div class="box" role="dialog" aria-modal="true" aria-label="Chercher une carte">
+  <div class="bar"><h3>Chercher une carte</h3><button class="icon" data-close aria-label="Fermer">✕</button></div>
+  <input id="q" placeholder="Nom (ex. Dracaufeu) et/ou numéro (ex. 006/165)" autocomplete="off">
+  <div class="res" id="qres"></div>
+</div></div>
+
+<div id="gate"><div class="in">
+  <div class="demo"></div>
+  <h2>Carto<b>Scan</b></h2>
+  <p>Place une carte Pokémon dans le cadre : elle est reconnue toute seule, sans photo, puis rangée dans ta collection avec son prix Cardmarket.</p>
+  <button class="pri" id="go">Lancer le scanner</button>
+  <button id="goCol" class="ghost">Voir ma collection</button>
+  <p class="err" id="gerr" role="alert"></p>
+  <p style="font-size:11px">Catalogue, images et prix : API publique TCGdex (guide de prix Cardmarket). Lecture du texte : Tesseract.js, sur ton appareil. Aucune image n'est envoyée. Application non officielle.</p>
+</div></div>
+<div id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+'use strict';
+const API='https://api.tcgdex.net/v2/fr', STORE='cartoscan.col.v1';
+const $=s=>document.querySelector(s);
+const eur=new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'});
+const money=v=>v==null?'—':eur.format(v);
+const today=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function toast(t,ms=2200){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',ms)}
+
+/* ---------- collection (localStorage) ---------- */
+let col={};
+try{col=JSON.parse(localStorage.getItem(STORE)||'{}')||{}}catch(e){col={}}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(col))}catch(e){toast('Sauvegarde impossible sur cet appareil')}}
+
+/* ---------- catalogue ---------- */
+let CARDS=[], SETS={}, NAMES=[];
+const POCKET=/^(A\d+[a-z]?|B\d+[a-z]?|P-[AB])$/; // cartes numériques TCG Pocket exclues
+const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const SUFFIX=new Set(['ex','gx','v','vmax','vstar','break','lv','x','prime','legende','turbo','tag','team','radieux','obscur']);
+const baseName=n=>n.split(' ').filter(w=>!SUFFIX.has(w)).join(' ')||n;
+const tri=s=>{const o=[];for(let i=0;i+3<=s.length;i++)o.push(s.substr(i,3));return o};
+const numKey=s=>String(s||'').toUpperCase().replace(/^([A-Z]*)0*(\d+)$/,'$1$2');
+
+async function cachedJSON(url,maxAgeDays){
+  let c=null;
+  try{c=await caches.open('cartoscan-v1');const r=await c.match(url);
+    if(r){const age=(Date.now()-(+r.headers.get('x-saved')||0))/864e5;const j=await r.json();
+      if(age>maxAgeDays)fetch(url).then(async n=>{if(n.ok){const b=await n.text();c.put(url,new Response(b,{headers:{'x-saved':Date.now()}}))}}).catch(()=>{});
+      return j}}catch(e){c=null}
+  const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);const b=await r.text();
+  try{c&&await c.put(url,new Response(b,{headers:{'x-saved':Date.now()}}))}catch(e){}
+  return JSON.parse(b);
+}
+let catalogP=null;
+function loadCatalog(){
+  return catalogP||(catalogP=(async()=>{
+    const [cards,sets]=await Promise.all([cachedJSON(API+'/cards',3),cachedJSON(API+'/sets',3)]);
+    for(const s of sets)SETS[s.id]={name:s.name,off:s.cardCount?.official||0,tot:s.cardCount?.total||0};
+    const byName=new Map();
+    for(const c of cards){
+      const setId=c.id.endsWith('-'+c.localId)?c.id.slice(0,-c.localId.length-1):c.id.slice(0,c.id.lastIndexOf('-'));
+      if(POCKET.test(setId))continue;
+      const o={id:c.id,lid:c.localId,nk:numKey(decodeURIComponent(c.localId)),name:c.name,set:setId,img:c.image||null};
+      CARDS.push(o);
+      const n=norm(c.name);if(!n)continue;
+      let e=byName.get(n);if(!e){const b=baseName(n);e={n,b,t:tri(b.length>=5?b:n),cards:[]};byName.set(n,e)}
+      e.cards.push(o);
+    }
+    NAMES=[...byName.values()];
+  })().catch(e=>{catalogP=null;throw e}));
+}
+
+/* ---------- fuzzy text ---------- */
+function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=new Array(n+1),q=new Array(n+1);for(let j=0;j<=n;j++)p[j]=j;
+  for(let i=1;i<=m;i++){q[0]=i;const ca=a.charCodeAt(i-1);for(let j=1;j<=n;j++)q[j]=Math.min(p[j]+1,q[j-1]+1,p[j-1]+(ca===b.charCodeAt(j-1)?0:1));[p,q]=[q,p]}return p[n]}
+function fz(text,name){
+  const L=name.length;if(!L||!text)return 0;
+  if(L<=4)return new RegExp('(^| )'+name+'( |$)').test(text)?1:0;
+  let best=L;
+  if(text.length<L-1)best=lev(text,name);
+  else for(let w=L-1;w<=L+1;w++)for(let i=0;i+w<=text.length;i++){const d=lev(text.substr(i,w),name);if(d<best){best=d;if(!d)return 1}}
+  return 1-best/L;
+}
+function nameScore(text,entryOrName){
+  const n=typeof entryOrName==='string'?norm(entryOrName):entryOrName.n, b=typeof entryOrName==='string'?baseName(n):entryOrName.b;
+  return Math.max(fz(text,n),b!==n?fz(text,b)*.97:0);
+}
+
+/* ---------- image descriptor (illustration) ---------- */
+const DW=14,DH=20,dcv=document.createElement('canvas');dcv.width=140;dcv.height=200;
+const dctx=dcv.getContext('2d',{willReadFrequently:true});
+function descFrom(src,sx,sy,sw,sh){
+  dctx.drawImage(src,sx,sy,sw,sh,0,0,140,200);
+  const d=dctx.getImageData(0,0,140,200).data,v=new Float32Array(DW*DH*3);
+  for(let gy=0;gy<DH;gy++)for(let gx=0;gx<DW;gx++){let r=0,g=0,b=0,n=0;
+    for(let y=gy*10;y<gy*10+10;y+=2)for(let x=gx*10;x<gx*10+10;x+=2){const i=(y*140+x)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++}
+    const k=(gy*DW+gx)*3;v[k]=r/n;v[k+1]=g/n;v[k+2]=b/n}
+  for(let c=0;c<3;c++){let m=0,s=0;const N=DW*DH;for(let i=c;i<v.length;i+=3)m+=v[i];m/=N;for(let i=c;i<v.length;i+=3)s+=(v[i]-m)**2;s=Math.sqrt(s/N)||1;for(let i=c;i<v.length;i+=3)v[i]=(v[i]-m)/s}
+  return v;
+}
+const simD=(a,b)=>{let s=0;for(let i=0;i<a.length;i++)s+=a[i]*b[i];return s/a.length};
+const DESC=new Map();
+function cardDesc(c){
+  if(DESC.has(c.id))return DESC.get(c.id);
+  const p=new Promise(res=>{if(!c.img)return res(null);const im=new Image();im.crossOrigin='anonymous';
+    im.onload=()=>{try{res(descFrom(im,0,0,im.naturalWidth,im.naturalHeight))}catch(e){res(null)}};im.onerror=()=>res(null);im.src=c.img+'/low.webp'});
+  DESC.set(c.id,p);p.then(v=>{if(!v)DESC.delete(c.id)});return p;
+}
+async function rankByImage(camD,cands){
+  const out=[];let i=0;
+  await Promise.all(Array.from({length:6},async()=>{while(i<cands.length){const c=cands[i++];const d=await cardDesc(c);if(d)out.push({c,s:simD(camD,d)})}}));
+  return out.sort((a,b)=>b.s-a.s);
+}
+
+/* ---------- camera + OCR ---------- */
+const video=$('#video'),frame=$('#frame'),statusEl=$('#status');
+let stream=null,track=null,wName=null,wNum=null,running=false,cycle=0;
+function setStatus(t){statusEl.textContent=t}
+function placeStatus(){const r=frame.getBoundingClientRect();statusEl.style.top=(r.bottom+12)+'px'}
+addEventListener('resize',placeStatus);
+
+async function startCamera(){
+  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+  video.srcObject=stream;await video.play().catch(()=>{});
+  track=stream.getVideoTracks()[0];
+  try{const cap=track.getCapabilities?.()||{};
+    if(cap.focusMode&&cap.focusMode.includes('continuous'))track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
+    if(cap.torch)$('#torch').hidden=false}catch(e){}
+}
+$('#torch').onclick=async()=>{const b=$('#torch'),on=!b.classList.contains('on');try{await track.applyConstraints({advanced:[{torch:on}]});b.classList.toggle('on',on)}catch(e){toast('Lampe indisponible')}};
+
+async function startOCR(){
+  if(wName)return;
+  const T=window.Tesseract;if(!T)throw new Error('Tesseract non chargé');
+  [wName,wNum]=await Promise.all([T.createWorker('fra'),T.createWorker('eng')]);
+  await wNum.setParameters({tessedit_char_whitelist:'0123456789/ABCDEFGHIJKLMNOPQRSTUVWXYZ',tessedit_pageseg_mode:'11'});
+  await wName.setParameters({tessedit_pageseg_mode:'6'});
+}
+// rectangle du cadre en pixels vidéo
+function frameRect(){
+  const vw=video.videoWidth,vh=video.videoHeight;if(!vw)return null;
+  const ew=video.clientWidth,eh=video.clientHeight,sc=Math.max(ew/vw,eh/vh),ox=(ew-vw*sc)/2,oy=(eh-vh*sc)/2;
+  const r=frame.getBoundingClientRect(),v=video.getBoundingClientRect();
+  return{x:(r.left-v.left-ox)/sc,y:(r.top-v.top-oy)/sc,w:r.width/sc,h:r.height/sc};
+}
+function band(F,x0,y0,x1,y1,scale){
+  const sw=F.w*(x1-x0),sh=F.h*(y1-y0),c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(sw*scale));c.height=Math.max(1,Math.round(sh*scale));
+  const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingQuality='high';
+  g.drawImage(video,F.x+F.w*x0,F.y+F.h*y0,sw,sh,0,0,c.width,c.height);
+  const id=g.getImageData(0,0,c.width,c.height),d=id.data,h=new Uint32Array(256),N=d.length/4;
+  for(let i=0;i<d.length;i+=4){const y=(d[i]*.3+d[i+1]*.59+d[i+2]*.11)|0;d[i]=y;h[y]++}
+  let lo=0,hi=255,a=0;while(lo<255&&(a+=h[lo])<N*.02)lo++;a=0;while(hi>0&&(a+=h[hi])<N*.02)hi--;
+  const k=255/Math.max(20,hi-lo);
+  for(let i=0;i<d.length;i+=4){const y=Math.max(0,Math.min(255,(d[i]-lo)*k));d[i]=d[i+1]=d[i+2]=y}
+  g.putImageData(id,0,0);return c;
+}
+function variance(F){
+  const c=document.createElement('canvas');c.width=40;c.height=56;const g=c.getContext('2d',{willReadFrequently:true});
+  g.drawImage(video,F.x,F.y,F.w,F.h,0,0,40,56);const d=g.getImageData(0,0,40,56).data;let m=0,s=0,n=d.length/4;
+  for(let i=0;i<d.length;i+=4)m+=d[i]*.3+d[i+1]*.59+d[i+2]*.11;m/=n;for(let i=0;i<d.length;i+=4)s+=(d[i]*.3+d[i+1]*.59+d[i+2]*.11-m)**2;return Math.sqrt(s/n);
+}
+const NUMV=[[0,.86,1,.99,3],[0,.87,.52,.99,4],[.48,.87,1,.99,4]];
+function parseNumbers(t){
+  const out=[];t=t.toUpperCase().replace(/\s*\/\s*/g,'/');
+  for(const m of t.matchAll(/([A-Z]{0,2})(\d{1,3})\/([A-Z]{0,2})(\d{2,3})/g)){
+    let pre=m[1],num=m[2],tot=+m[4];
+    if(pre&&!/^(TG|GG|RC|SV|SH|H)$/.test(pre))pre='';
+    if(!tot||tot<10)continue;out.push({nk:numKey(pre+num),tot,raw:(pre+num)+'/'+m[3]+m[4]});
+  }
+  return out;
+}
+
+let pending=null,lastAdd=null,lastResult=null,readHint=0;
+async function loop(){
+  if(running)return;running=true;
+  while(running){
+    if(document.hidden||!$('#scan').classList.contains('on')||$('.sheet.on')){await sleep(400);continue}
+    const F=frameRect();
+    if(!F||!wName||!CARDS.length){await sleep(300);continue}
+    try{await step(F)}catch(e){console.warn(e)}
+    await sleep(120);
+  }
+}
+async function step(F){
+  if(variance(F)<16){frame.className='';if(!lastResult||Date.now()-lastResult>2500)setStatus('Place une carte dans le cadre');pending=null;await sleep(350);return}
+  frame.className='busy';
+  const camD=descFrom(video,F.x,F.y,F.w,F.h);
+  const v=NUMV[cycle++%NUMV.length];
+  const [rn,rd]=await Promise.all([wName.recognize(band(F,0,.015,.82,.13,900/(F.w*.82))),wNum.recognize(band(F,v[0],v[1],v[2],v[3],v[4]))]);
+  const text=norm(rn.data.text),nums=parseNumbers(rd.data.text);
+  const hit=await match(text,nums,camD);
+  if(!hit){frame.className='busy';
+    if(Date.now()-readHint>2600&&(!lastResult||Date.now()-lastResult>2500)){readHint=Date.now();setStatus(['Lecture… tiens la carte bien à plat','Lecture… évite les reflets','Lecture… remplis bien le cadre'][(cycle/3|0)%3])}
+    return}
+  // confirmation : même carte lue deux fois de suite, ou lecture très sûre
+  const now=Date.now();
+  if(lastAdd&&lastAdd.id===hit.c.id&&now-lastAdd.t<5000){lastAdd.t=now;frame.className='hit';return}
+  if(hit.sure||(pending&&pending.id===hit.c.id&&now-pending.t<5000)){pending=null;await addScanned(hit.c);lastAdd={id:hit.c.id,t:Date.now()}}
+  else{pending={id:hit.c.id,t:now};setStatus('Repérée : '+hit.c.name+' — ne bouge pas…')}
+}
+async function match(text,nums,camD){
+  let byNum=[];
+  for(const n of nums){const cs=CARDS.filter(c=>c.nk===n.nk&&SETS[c.set]&&(SETS[c.set].off===n.tot||SETS[c.set].tot===n.tot));byNum.push(...cs)}
+  byNum=[...new Map(byNum.map(c=>[c.id,c])).values()];
+  if(byNum.length){
+    const sc=byNum.map(c=>({c,ns:nameScore(text,c.name)})).sort((a,b)=>b.ns-a.ns);
+    const good=sc.filter(x=>x.ns>=.55);
+    if(good.length===1)return{c:good[0].c,sure:good[0].ns>=.72};
+    if(good.length>1){const r=await rankByImage(camD,good.map(x=>x.c));if(r.length&&r[0].s>.3)return{c:r[0].c,sure:r[0].s>.5}}
+    if(byNum.length<=12){const r=await rankByImage(camD,byNum);if(r.length&&r[0].s>.5&&(r.length<2||r[0].s-r[1].s>.08))return{c:r[0].c,sure:false}}
+  }
+  if(text.length<3)return null;
+  const tt=new Set(tri(text));let sc=[];
+  for(const e of NAMES){if(e.b.length>=5&&!e.t.some(t=>tt.has(t)))continue;const s=nameScore(text,e);if(s>=.72)sc.push({e,s})}
+  if(!sc.length)return null;
+  sc.sort((a,b)=>b.s-a.s);const top=sc[0].s;sc=sc.filter(x=>x.s>=top-.06);
+  const cands=sc.flatMap(x=>x.e.cards).filter(c=>c.img).slice(0,160);
+  if(!cands.length)return null;
+  if(cands.length>20)setStatus('Comparaison des illustrations ('+sc[0].e.cards[0].name+')…');
+  const r=await rankByImage(camD,cands);
+  if(r.length&&r[0].s>.5&&(r.length<2||r[0].s-r[1].s>.1))return{c:r[0].c,sure:false};
+  setStatus(sc[0].e.cards[0].name+' ? Montre bien le numéro en bas');
+  return null;
+}
+
+/* ---------- carte détaillée & prix ---------- */
+const pick=(cm,suf)=>{if(!cm)return null;const g=k=>{const v=cm[k+suf];return typeof v==='number'&&v>0?v:null};
+  const o={low:g('low'),trend:g('trend'),avg:g('avg'),avg1:g('avg1'),avg7:g('avg7'),avg30:g('avg30')};return Object.values(o).some(v=>v!=null)?o:null};
+async function fetchCard(id){
+  const r=await fetch(API+'/cards/'+id);if(!r.ok)throw new Error('HTTP '+r.status);const c=await r.json();
+  if(!c.image){try{const e=await (await fetch(API.replace('/fr','/en')+'/cards/'+id)).json();if(e.image)c.image=e.image}catch(e){}}
+  return c;
+}
+function applyCard(it,c){
+  const cm=c.pricing?.cardmarket;
+  Object.assign(it,{name:c.name,lid:c.localId,set:c.set?.id,setName:c.set?.name,setOff:c.set?.cardCount?.official,rarity:c.rarity,illus:c.illustrator,hp:c.hp,types:c.types,cat:c.category,
+    img:c.image||it.img,cm:cm?.idProduct,pupd:cm?.updated,rLabel:c.variants?.reverse?'Reverse':'Holo',
+    pr:{n:pick(cm,''),r:pick(cm,'-holo')},updated:Date.now(),
+    other:(c.variants_detailed||[]).filter(v=>(v.stamp||v.foil)&&v.pricing?.cardmarket).map(v=>({l:[v.type,v.foil,...(v.stamp||[])].filter(Boolean).join(' · '),p:pick(v.pricing.cardmarket,'')?.trend??pick(v.pricing.cardmarket,'-holo')?.trend??null})).slice(0,8)});
+  if(!it.finish||!it.pr[it.finish])it.finish=it.pr.n?'n':(it.pr.r?'r':'n');
+  it.hist=it.hist||[];const d=today(),row=[d,it.pr.n?.trend??null,it.pr.r?.trend??null];
+  const i=it.hist.findIndex(h=>h[0]===d);if(i>=0)it.hist[i]=row;else it.hist.push(row);
+  if(it.hist.length>400)it.hist.splice(0,it.hist.length-400);
+}
+const priceOf=it=>{const p=it.pr?.[it.finish];return p?(p.trend??p.avg??p.avg7??p.avg30??p.low):null};
+
+let undoKey=null;
+async function addScanned(brief,silent){
+  setStatus('Reconnue : '+brief.name);frame.className='hit';
+  try{navigator.vibrate?.(60)}catch(e){}beep();
+  let it=col[brief.id];const isNew=!it;
+  if(!it)it={id:brief.id,name:brief.name,img:brief.img,qty:0,added:Date.now()};
+  it.qty++;it.last=Date.now();col[brief.id]=it;save();undoKey=brief.id;
+  showResult(it,isNew);updateNav();
+  try{applyCard(it,await fetchCard(brief.id));save();showResult(it,isNew);renderCol()}catch(e){toast('Prix indisponible pour le moment')}
+  lastResult=Date.now();
+}
+function showResult(it,isNew){
+  const r=$('#result');r.classList.add('on');
+  r.querySelector('img').src=it.img?it.img+'/low.webp':'';
+  r.querySelector('.n').textContent=it.name;
+  r.querySelector('.s').textContent=[it.setName||'',it.lid?('n° '+it.lid+(it.setOff?'/'+it.setOff:'')):'',it.rarity||''].filter(Boolean).join(' · ');
+  r.querySelector('.p').innerHTML=esc(money(priceOf(it)))+'<small>'+(isNew?'Ajoutée':'×'+it.qty+' dans ta collection')+'</small>';
+  r.dataset.id=it.id;
+}
+$('#rDetail').onclick=()=>openDetail($('#result').dataset.id);
+$('#rUndo').onclick=()=>{const it=col[undoKey];if(!it)return;it.qty--;if(it.qty<=0)delete col[undoKey];save();$('#result').classList.remove('on');updateNav();renderCol();toast('Ajout annulé');lastAdd={id:undoKey,t:Date.now()}};
+
+let actx=null;
+function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime;
+  o.type='sine';o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1320,t+.07);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.18,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+  o.connect(g).connect(actx.destination);o.start(t);o.stop(t+.2)}catch(e){}}
+
+/* ---------- détails ---------- */
+function chartSVG(it){
+  const p=it.pr?.[it.finish];if(!p)return '<p class="note">Pas de prix Cardmarket pour cette version.</p>';
+  const W=320,H=150,L=8,R=8,T=16,B=22,fi=it.finish==='r'?2:1;
+  const avg=[[-30,p.avg30],[-7,p.avg7],[-1,p.avg1],[0,p.trend??p.avg]].filter(x=>x[1]!=null);
+  const t0=new Date(today()).getTime();
+  const loc=(it.hist||[]).map(h=>[Math.round((new Date(h[0]).getTime()-t0)/864e5),h[fi]]).filter(x=>x[1]!=null&&x[0]>-366);
+  const xs=[...avg,...loc].map(x=>x[0]),ys=[...avg,...loc].map(x=>x[1]);if(!ys.length)return '';
+  const x0=Math.min(-30,...xs),y0=Math.min(...ys)*.9,y1=Math.max(...ys)*1.1||1;
+  const X=x=>L+(x-x0)/(0-x0)*(W-L-R),Y=y=>T+(1-(y-y0)/((y1-y0)||1))*(H-T-B);
+  const path=a=>a.map((q,i)=>(i?'L':'M')+X(q[0]).toFixed(1)+','+Y(q[1]).toFixed(1)).join('');
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution du prix"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcb05" stop-opacity=".35"/><stop offset="1" stop-color="#ffcb05" stop-opacity="0"/></linearGradient></defs>`;
+  for(let i=0;i<3;i++){const y=T+i*(H-T-B)/2;s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#2c3140"/>`}
+  if(avg.length>1)s+=`<path d="${path(avg)}L${X(avg[avg.length-1][0])},${H-B}L${X(avg[0][0])},${H-B}Z" fill="url(#ga)"/><path d="${path(avg)}" fill="none" stroke="#ffcb05" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for(const q of avg)s+=`<circle cx="${X(q[0])}" cy="${Y(q[1])}" r="3.5" fill="#ffcb05"/><text x="${Math.min(W-30,Math.max(20,X(q[0])))}" y="${Y(q[1])-7}" fill="#f2f4f8" font-size="10" text-anchor="middle">${q[1].toFixed(2)}</text>`;
+  if(loc.length>1)s+=`<path d="${path(loc)}" fill="none" stroke="#5aa9ff" stroke-width="2"/>`;
+  for(const q of loc)s+=`<circle cx="${X(q[0])}" cy="${Y(q[1])}" r="2.6" fill="#5aa9ff"/>`;
+  const lab=[[x0,x0+' j'],[-7,'-7 j'],[0,"auj."]];if(x0===-30)lab[0]=[-30,'-30 j'];
+  for(const [x,t] of lab)s+=`<text x="${Math.min(W-14,Math.max(14,X(x)))}" y="${H-6}" fill="#9aa2b4" font-size="10" text-anchor="middle">${t}</text>`;
+  return s+'</svg>';
+}
+function openDetail(id){
+  const it=col[id];if(!it)return;
+  $('#dName').textContent=it.name;renderDetail(it);$('#detail').classList.add('on');
+  if(!it.updated||Date.now()-it.updated>6*36e5)fetchCard(id).then(c=>{applyCard(it,c);save();if($('#detail').classList.contains('on'))renderDetail(it);renderCol()}).catch(()=>{});
+}
+function renderDetail(it){
+  const p=it.pr?.[it.finish]||{},v=priceOf(it),ch=p.avg30&&v?(v-p.avg30)/p.avg30*100:null;
+  const fins=['n','r'].filter(k=>it.pr?.[k]),seg=fins.length<2?'':fins.map(k=>`<button data-fin="${k}" class="${it.finish===k?'on':''}">${k==='n'?'Normale':esc(it.rLabel||'Reverse')}</button>`).join('');
+  const cmUrl='https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString='+encodeURIComponent(it.name+' '+(it.setName||''));
+  $('#dBody').innerHTML=`
+  <div class="dtop"><img src="${it.img?esc(it.img)+'/high.webp':''}" alt="${esc(it.name)}">
+   <div class="meta"><div>Tendance Cardmarket</div><div class="big">${esc(money(v))}</div>
+    ${ch!=null?`<div class="chg ${ch>=0?'up':'down'}">${ch>=0?'▲':'▼'} ${Math.abs(ch).toFixed(1)} % vs moy. 30 j</div>`:''}
+    <div style="margin-top:8px">Extension <b>${esc(it.setName||'—')}</b></div>
+    <div>Numéro <b>${esc(it.lid||'—')}${it.setOff?'/'+it.setOff:''}</b></div>
+    ${it.rarity?`<div>Rareté <b>${esc(it.rarity)}</b></div>`:''}
+    <div>Exemplaires <b>${it.qty}</b> · valeur <b>${esc(money(v!=null?v*it.qty:null))}</b></div></div></div>
+  ${seg?`<div class="seg">${seg}</div>`:''}
+  <div class="chart">${chartSVG(it)}<div class="legend"><span><i style="background:#ffcb05"></i>Moyennes Cardmarket (30 j, 7 j, 1 j, tendance)</span><span><i style="background:#5aa9ff"></i>Ton suivi jour par jour</span></div></div>
+  <table>
+   <tr><td>Prix le plus bas</td><td>${money(p.low)}</td></tr>
+   <tr><td>Tendance</td><td>${money(p.trend)}</td></tr>
+   <tr><td>Prix moyen de vente</td><td>${money(p.avg)}</td></tr>
+   <tr><td>Moyenne 24 h</td><td>${money(p.avg1)}</td></tr>
+   <tr><td>Moyenne 7 jours</td><td>${money(p.avg7)}</td></tr>
+   <tr><td>Moyenne 30 jours</td><td>${money(p.avg30)}</td></tr>
+  </table>
+  <p class="note">Guide de prix Cardmarket via TCGdex${it.pupd?', mis à jour le '+new Date(it.pupd).toLocaleDateString('fr-FR'):''}. Cardmarket calcule ce guide toutes langues confondues : le prix d'un exemplaire FR peut être différent, vérifie avec le filtre « Français » sur Cardmarket.</p>
+  <div class="row"><div class="qty"><button data-q="-1" aria-label="Retirer un exemplaire">−</button><b>${it.qty}</b><button data-q="1" aria-label="Ajouter un exemplaire">+</button></div>
+   <a class="grow" href="${cmUrl}" target="_blank" rel="noopener"><button style="width:100%">Voir sur Cardmarket ↗</button></a></div>
+  <details><summary>Détails de la carte</summary>
+   ${it.cat?`<div class="att">Catégorie <b>${esc(it.cat)}</b></div>`:''}
+   ${it.hp?`<div class="att">PV <b>${esc(it.hp)}</b>${it.types?' · Type <b>'+esc(it.types.join(', '))+'</b>':''}</div>`:''}
+   ${it.illus?`<div class="att">Illustration <b>${esc(it.illus)}</b></div>`:''}
+   <div class="att">Identifiant <b>${esc(it.id)}</b>${it.cm?' · Cardmarket <b>#'+esc(it.cm)+'</b>':''}</div>
+   <div class="att">Ajoutée le <b>${new Date(it.added).toLocaleDateString('fr-FR')}</b></div>
+   ${(it.other||[]).length?'<div class="att" style="margin-top:10px"><b>Autres versions (tampons, holos)</b></div><table>'+it.other.map(o=>`<tr><td>${esc(o.l)}</td><td>${money(o.p)}</td></tr>`).join('')+'</table>':''}
+  </details>
+  <div class="row"><button class="grow" id="dDel" style="color:var(--bad)">Retirer de la collection</button></div>`;
+  $('#dBody').querySelectorAll('[data-fin]').forEach(b=>b.onclick=()=>{it.finish=b.dataset.fin;save();renderDetail(it);renderCol()});
+  $('#dBody').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{it.qty=Math.max(1,it.qty+ +b.dataset.q);save();renderDetail(it);renderCol();updateNav()});
+  $('#dDel').onclick=()=>{if(!confirm('Retirer '+it.name+' de ta collection ?'))return;delete col[it.id];save();$('#detail').classList.remove('on');renderCol();updateNav()};
+}
+
+/* ---------- collection ---------- */
+function updateNav(){const n=Object.values(col).reduce((a,b)=>a+b.qty,0);$('#navCount').textContent=n?' '+n:''}
+function renderCol(){
+  const items=Object.values(col),f=norm($('#filter').value),s=$('#sort').value;
+  let n=0,tot=0;for(const it of items){n+=it.qty;const v=priceOf(it);if(v)tot+=v*it.qty}
+  $('#tCount').textContent=n;$('#tValue').textContent=money(tot);
+  let list=items.filter(it=>!f||norm(it.name+' '+(it.setName||'')).includes(f));
+  const cmp={val:(a,b)=>(priceOf(b)||0)-(priceOf(a)||0),new:(a,b)=>(b.last||b.added)-(a.last||a.added),name:(a,b)=>a.name.localeCompare(b.name,'fr'),set:(a,b)=>(a.setName||'').localeCompare(b.setName||'','fr')||String(a.lid).localeCompare(String(b.lid),'fr',{numeric:true})}[s];
+  list.sort(cmp);
+  $('#grid').innerHTML=list.length?list.map(it=>`<button class="cell" data-id="${esc(it.id)}"><img loading="lazy" src="${it.img?esc(it.img)+'/low.webp':''}" alt=""><div class="n">${esc(it.name)}</div><div class="p">${esc(money(priceOf(it)))}</div>${it.qty>1?`<span class="q">×${it.qty}</span>`:''}</button>`).join('')
+    :`<div class="empty" style="grid-column:1/-1">${items.length?'Aucune carte ne correspond.':'Ta collection est vide. Scanne ta première carte !'}</div>`;
+  $('#grid').querySelectorAll('.cell').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+  const up=items.map(i=>i.updated||0).filter(Boolean);
+  $('#colNote').textContent=up.length?'Prix actualisés le '+new Date(Math.min(...up)).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' au plus tôt. Valeur = tendance Cardmarket × exemplaires.':'';
+}
+$('#filter').oninput=renderCol;$('#sort').onchange=renderCol;
+let refreshing=false;
+async function refreshPrices(force){
+  if(refreshing)return;refreshing=true;const b=$('#refreshAll');
+  const items=Object.values(col).filter(it=>force||!it.updated||Date.now()-it.updated>12*36e5);
+  let k=0;for(const it of items){b.textContent='Actualisation '+(++k)+'/'+items.length+'…';try{applyCard(it,await fetchCard(it.id));save()}catch(e){}await sleep(250)}
+  b.textContent='Actualiser les prix';refreshing=false;renderCol();if(force)toast('Prix à jour');
+}
+$('#refreshAll').onclick=()=>refreshPrices(true);
+
+/* ---------- recherche manuelle ---------- */
+function openSearch(){$('#search').classList.add('on');$('#q').value='';$('#qres').innerHTML='<p class="note">Chargement du catalogue…</p>';loadCatalog().then(()=>{$('#qres').innerHTML='';$('#q').focus()}).catch(()=>$('#qres').innerHTML='<p class="note">Catalogue indisponible (connexion ?).</p>')}
+$('#searchBtn').onclick=openSearch;$('#addManual').onclick=openSearch;
+$('#q').oninput=()=>{
+  const raw=$('#q').value,nums=parseNumbers(raw),q=norm(raw.replace(/[A-Z]{0,2}\d{1,3}\s*\/\s*[A-Z]{0,2}\d{2,3}/i,''));
+  if(!q&&!nums.length){$('#qres').innerHTML='';return}
+  let r=CARDS.filter(c=>(!q||norm(c.name).includes(q))&&(!nums.length||nums.some(n=>c.nk===n.nk&&SETS[c.set]&&(SETS[c.set].off===n.tot||SETS[c.set].tot===n.tot))));
+  r=r.slice(0,60);
+  $('#qres').innerHTML=r.length?r.map(c=>`<button class="ritem" data-id="${esc(c.id)}"><img loading="lazy" src="${c.img?esc(c.img)+'/low.webp':''}" alt=""><div><b>${esc(c.name)}</b><span>${esc(SETS[c.set]?.name||c.set)} · n° ${esc(decodeURIComponent(c.lid))}${SETS[c.set]?.off?'/'+SETS[c.set].off:''}</span></div></button>`).join(''):'<p class="note">Aucune carte trouvée.</p>';
+  $('#qres').querySelectorAll('.ritem').forEach(b=>b.onclick=async()=>{const c=CARDS.find(x=>x.id===b.dataset.id);$('#search').classList.remove('on');await addScanned(c);openDetail(c.id)});
+};
+
+/* ---------- navigation & démarrage ---------- */
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.sheet').classList.remove('on'));
+document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{if(e.target===s)s.classList.remove('on')}));
+function show(v){$('#scan').classList.toggle('on',v==='scan');$('#col').classList.toggle('on',v==='col');$('#navScan').classList.toggle('on',v==='scan');$('#navCol').classList.toggle('on',v==='col');if(v==='col')renderCol();else placeStatus()}
+$('#navScan').onclick=async()=>{show('scan');if(!stream)await boot()};
+$('#navCol').onclick=()=>show('col');
+$('#goCol').onclick=()=>{$('#gate').style.display='none';show('col');loadCatalog().catch(()=>{});refreshPrices(false)};
+$('#go').onclick=()=>boot();
+async function boot(){
+  const err=$('#gerr');err.textContent='';beep();
+  if(!navigator.mediaDevices?.getUserMedia){err.textContent='Caméra indisponible ici : ouvre la page en HTTPS dans Safari ou Chrome.';return}
+  try{await startCamera()}catch(e){err.textContent=e.name==='NotAllowedError'?'Accès à la caméra refusé. Autorise-le dans les réglages du navigateur puis réessaie.':'Impossible d\'ouvrir la caméra ('+e.name+').';$('#gate').style.display='grid';return}
+  $('#gate').style.display='none';show('scan');placeStatus();
+  setStatus('Chargement du catalogue des cartes…');
+  try{await loadCatalog()}catch(e){setStatus('Catalogue indisponible : vérifie ta connexion');return}
+  setStatus('Préparation de la lecture (1re fois : ~15 Mo)…');
+  try{await startOCR()}catch(e){setStatus('Lecture du texte indisponible. Utilise la recherche ⌕');return}
+  setStatus('Place une carte dans le cadre');loop();refreshPrices(false);
+}
+updateNav();
+</script>
+</body>
+</html>
