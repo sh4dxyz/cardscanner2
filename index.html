@@ -53,7 +53,7 @@ body:has(#frame.hit) .led.g{filter:drop-shadow(0 0 5px var(--ok))}
 @keyframes blink{50%{opacity:.35}}
 /* scanner */
 #scan{background:#000}
-#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#video{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;background:#000;max-width:none}
 #scan::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.09) 0 2px,transparent 2px 4px)}
 #frame{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--sa) + 112px);aspect-ratio:63/88;width:min(64vw,calc((var(--vh,100dvh) - var(--sa) - var(--sb) - 330px) * 63 / 88));box-shadow:0 0 0 200vmax rgba(10,6,8,.6);pointer-events:none;z-index:1}
 #frame i{position:absolute;width:30px;height:30px;border:5px solid var(--cream);transition:border-color .12s}
@@ -507,7 +507,20 @@ function layoutFrame(){
   let w=Math.min(W*.84,420,room*63/88);w=Math.max(140,Math.round(w));const h=Math.round(w*88/63);
   Object.assign(frame.style,{width:w+'px',height:h+'px',left:Math.round((W-w)/2)+'px',top:Math.round(top+Math.max(10,(room-h)/2))+'px',transform:'none'});
 }
-function fitScreen(){document.documentElement.style.setProperty('--vh',(window.visualViewport?.height||innerHeight)+'px');layoutFrame();placeStatus()}
+// la vidéo est dimensionnée à la main pour couvrir tout l'écran : au retour dans l'appli, Safari/Chrome
+// réaffichent parfois le flux caméra réduit avec des bandes noires en ignorant object-fit
+function coverVideo(){
+  const vw=video.videoWidth,vh=video.videoHeight,b=$('#scan').getBoundingClientRect(),W=b.width||innerWidth,H=b.height||innerHeight;
+  if(!vw||!vh||!W||!H)return;
+  const k=Math.max(W/vw,H/vh),w=Math.ceil(vw*k),h=Math.ceil(vh*k);
+  Object.assign(video.style,{width:w+'px',height:h+'px',left:Math.floor((W-w)/2)+'px',top:Math.floor((H-h)/2)+'px'});
+}
+function fitScreen(){document.documentElement.style.setProperty('--vh',(window.visualViewport?.height||innerHeight)+'px');coverVideo();layoutFrame();placeStatus()}
+video.addEventListener('loadedmetadata',fitScreen);video.addEventListener('resize',fitScreen);video.addEventListener('playing',fitScreen);
+// contrôle de secours : si la vidéo ne couvre plus l'écran (retour d'arrière-plan, barre d'adresse…), on la recale
+setInterval(()=>{if(document.hidden||!$('#scan').classList.contains('on')||!video.videoWidth)return;
+  const v=video.getBoundingClientRect(),b=$('#scan').getBoundingClientRect();
+  if(v.left>b.left+1||v.top>b.top+1||v.right<b.right-1||v.bottom<b.bottom-1)fitScreen()},1000);
 addEventListener('resize',fitScreen);window.visualViewport?.addEventListener('resize',fitScreen);addEventListener('orientationchange',()=>setTimeout(fitScreen,300));
 async function startCamera(){
   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
@@ -528,7 +541,7 @@ async function resumeCamera(){
   stopCamera();$('#torch').classList.remove('on');
   try{await startCamera();
     // au retour, certains navigateurs affichent la vidéo réduite avec des bandes noires : on force une remise en page
-    const relayout=()=>{fitScreen();video.style.objectFit='fill';requestAnimationFrame(()=>{video.style.objectFit='';fitScreen()})};
+    const relayout=()=>{fitScreen();requestAnimationFrame(fitScreen)};
     video.addEventListener('playing',relayout,{once:true});setTimeout(relayout,500);
   }catch(e){setStatus('Caméra indisponible : touche ici pour réessayer')}
 }
