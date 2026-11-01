@@ -1,6 +1,6 @@
 // CartoScan : la coquille de l'appli reste utilisable hors ligne.
 // Réseau d'abord (les mises à jour arrivent tout de suite), cache en secours.
-const CACHE='cartoscan-shell-v1';
+const CACHE='cartoscan-shell-v2';
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','manifest.webmanifest','icon-192.png'])).catch(()=>{}))});
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
