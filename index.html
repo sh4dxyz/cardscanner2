@@ -244,6 +244,13 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
 #install .shr{display:inline-block;background:var(--blue);color:var(--ink);padding:0 5px;font-weight:700}
 #install button{width:calc(100% - 6px);margin-top:14px}
 #install .ghost{margin-top:8px}
+/* paysage bloqué : écran « tourne ton téléphone » (téléphones uniquement) */
+#rotate{position:fixed;inset:0;z-index:60;display:none;place-items:center;text-align:center;padding:20px;background-color:var(--red);background-image:radial-gradient(rgba(0,0,0,.09) 1.2px,transparent 1.6px);background-size:8px 8px}
+#rotate .ph{display:inline-block;animation:turn 1.6s steps(4) infinite}
+#rotate .ph svg{width:72px;height:72px}
+#rotate p{font:12px/1.8 var(--px);color:var(--cream);text-shadow:2px 2px 0 var(--red3);margin:16px 0 0}
+@keyframes turn{0%,30%{transform:rotate(-90deg)}60%,100%{transform:rotate(0)}}
+@media (orientation:landscape) and (max-height:560px) and (pointer:coarse){#rotate{display:grid}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}}
 </style>
 </head>
@@ -339,6 +346,7 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
   <button class="pri" id="instGo" hidden>INSTALLER</button>
   <button class="ghost" id="instLater">Plus tard</button>
 </div></div>
+<div id="rotate" role="alert"><div><span class="ph" data-pix="phone"></span><p>TOURNE TON TÉLÉPHONE<br>EN MODE PORTRAIT</p></div></div>
 <div id="toast" role="status"></div>
 
 <script>
@@ -877,6 +885,7 @@ const PIX={
   search:['...kkkk.....','..kwwwwk....','.kwwbbwwk...','.kwbwwwwk...','.kwwwwwwk...','.kwwwwwwk...','..kwwwwk....','...kkkkkk...','.......kkk..','........kkk.','.........kk.','............'],
   torch:['......kkk...','.....kyyk...','....kyyk....','...kyyk.....','..kyyyyyk...','.kkkkyyk....','....kyk.....','...kyk......','..kyk.......','..kk........','............','............']};
 function pix(m){let r='';m.forEach((row,y)=>[...row].forEach((c,x)=>{if(PIXC[c])r+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${PIXC[c]}"/>`}));return `<svg class="pix" viewBox="0 0 12 12" aria-hidden="true">${r}</svg>`}
+PIX.phone=['...kkkkkk...','..kwwwwwwk..','..kwbbbbwk..','..kwbbbbwk..','..kwbbbbwk..','..kwbbbbwk..','..kwbbbbwk..','..kwbbbbwk..','..kwwwwwwk..','..kwwkkwwk..','..kwwwwwwk..','...kkkkkk...'];
 PIX.share=['.....kk.....','....kkkk....','...kkkkkk...','..kk.kk.kk..','.....kk.....','.....kk.....','.kk..kk..kk.','.kk......kk.','.kk......kk.','.kkkkkkkkkk.','.kkkkkkkkkk.','............'];
 PIX.gear=['.....kk.....','..kk.kk.kk..','..kwkwwkwk..','...kwwwwk...','.kkwwkkwwkk.','kwwwk..kwwwk','kwwwk..kwwwk','.kkwwkkwwkk.','...kwwwwk...','..kwkwwkwk..','..kk.kk.kk..','.....kk.....'];
 document.querySelectorAll('[data-pix]').forEach(e=>e.insertAdjacentHTML('afterbegin',pix(PIX[e.dataset.pix])));
@@ -915,6 +924,9 @@ $('#instGo').onclick=async()=>{if(!instEvt)return;instEvt.prompt();try{await ins
 $('#instLater').onclick=closeInstall;
 if(isIOS)setTimeout(askInstall,900);
 document.addEventListener('pointerdown',e=>{if(e.target.closest('button'))vib(6)},{passive:true});
+// demande au système de rester en portrait (Android, appli installée ou plein écran ; ignoré ailleurs)
+const lockPortrait=()=>{try{screen.orientation?.lock?.('portrait').catch(()=>{})}catch(e){}};
+lockPortrait();addEventListener('pointerdown',lockPortrait,{once:true});
 fitScreen();updateNav();
 </script>
 </body>
