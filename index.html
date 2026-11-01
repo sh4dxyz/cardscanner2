@@ -337,6 +337,10 @@ summary{cursor:pointer;font-weight:700;min-height:30px;display:flex;align-items:
   <div class="bar"><h3>RÉGLAGES</h3><button class="icon" data-close aria-label="Fermer">×</button></div>
   <div class="opt"><div><b>Son de capture</b><span>Petit jingle 8-bit quand une carte est reconnue</span></div><button class="tog" data-pref="sound" aria-pressed="true">ON</button></div>
   <div class="opt"><div><b>Vibrations</b><span>Retour au toucher et à la capture</span></div><button class="tog" data-pref="vib" aria-pressed="true">ON</button></div>
+  <div class="opt"><div><b>Prix affiché</b><span id="priceDesc"></span>
+   <div class="seg" id="priceSeg" role="radiogroup" aria-label="Prix affiché" style="margin:8px 0 2px">
+    <button data-price="avg30">Moy. 30 j</button><button data-price="high">Haute</button><button data-price="trend">Tendance</button>
+   </div></div></div>
   <div class="opt"><div><b>Couleur du Pokédex</b><span id="themeName">Rouge Pokédex</span>
    <div class="themes" role="radiogroup" aria-label="Couleur du Pokédex">
     <button data-theme="rouge" style="--sw:#e3350d" aria-label="Rouge Pokédex"></button>
@@ -687,7 +691,14 @@ function applyCard(it,c){
   const i=it.hist.findIndex(h=>h[0]===d);if(i>=0)it.hist[i]=row;else it.hist.push(row);
   if(it.hist.length>400)it.hist.splice(0,it.hist.length-400);
 }
-const priceOf=it=>{const p=it.pr?.[it.finish];return p?(p.trend??p.avg??p.avg7??p.avg30??p.low):null};
+// prix affiché (réglage) : la « tendance » Cardmarket inclut tous les états et toutes les langues, elle sous-estime
+// souvent une carte en bon état ; par défaut on prend le prix de vente moyen sur 30 jours
+const PRICE_MODES={avg30:['Moyenne 30 jours','Prix de vente moyen sur 30 jours'],high:['Estimation haute','La plus haute des moyennes de vente (plus proche d\'un exemplaire Near Mint)'],trend:['Tendance Cardmarket','Tendance du guide Cardmarket (tous états)']};
+const priceMode=()=>PRICE_MODES[prefs.price]?prefs.price:'avg30';
+const priceOf=it=>{const p=it.pr?.[it.finish];if(!p)return null;const m=priceMode();
+  if(m==='trend')return p.trend??p.avg??p.avg7??p.avg30??p.low;
+  if(m==='high'){const a=[p.avg30,p.avg7,p.avg,p.trend].filter(v=>v!=null);return a.length?Math.max(...a):p.low}
+  return p.avg30??p.avg7??p.avg??p.trend??p.low};
 
 let undoKey=null,curAlts=[];
 async function addScanned(brief,alts){
@@ -764,13 +775,13 @@ function openDetail(id){
   if(!it.updated||Date.now()-it.updated>6*36e5)fetchCard(id).then(c=>{applyCard(it,c);save();if($('#detail').classList.contains('on'))renderDetail(it);renderCol()}).catch(()=>{});
 }
 function renderDetail(it){
-  const p=it.pr?.[it.finish]||{},v=priceOf(it),ch=p.avg30&&v?(v-p.avg30)/p.avg30*100:null;
+  const p=it.pr?.[it.finish]||{},v=priceOf(it),ch=p.avg30&&p.avg7?(p.avg7-p.avg30)/p.avg30*100:null;
   const fins=['n','r'].filter(k=>it.pr?.[k]),seg=fins.length<2?'':fins.map(k=>`<button data-fin="${k}" class="${it.finish===k?'on':''}">${k==='n'?'Normale':esc(it.rLabel||'Reverse')}</button>`).join('');
   const cmUrl='https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString='+encodeURIComponent(it.name+' '+(it.setName||''));
   $('#dBody').innerHTML=`
   <div class="dtop"><img crossorigin="anonymous" src="${esc(cimg(it.img?it.img+'/high.webp':''))}" alt="${esc(it.name)}">
-   <div class="meta"><div>Tendance Cardmarket</div><div class="big">${esc(money(v))}</div>
-    ${ch!=null?`<div class="chg ${ch>=0?'up':'down'}">${ch>=0?'▲':'▼'} <span class="num" style="color:inherit">${Math.abs(ch).toFixed(1).replace('.',',')} %</span> vs moy. 30 j</div>`:''}
+   <div class="meta"><div>${PRICE_MODES[priceMode()][0]}</div><div class="big">${esc(money(v))}</div>
+    ${ch!=null?`<div class="chg ${ch>=0?'up':'down'}">${ch>=0?'▲':'▼'} <span class="num" style="color:inherit">${Math.abs(ch).toFixed(1).replace('.',',')} %</span> sur 7 j</div>`:''}
     <div style="margin-top:8px">Extension <b>${esc(it.setName||'—')}</b></div>
     <div>Numéro <b class="num">${esc(decodeURIComponent(it.lid||'—'))}${it.setOff?'/'+it.setOff:''}</b></div>
     ${it.rarity?`<div>Rareté <b>${esc(it.rarity)}</b></div>`:''}
@@ -785,7 +796,7 @@ function renderDetail(it){
    <tr><td>Moyenne 7 jours</td><td>${money(p.avg7)}</td></tr>
    <tr><td>Moyenne 30 jours</td><td>${money(p.avg30)}</td></tr>
   </table>
-  <p class="note">Guide de prix Cardmarket via TCGdex${it.pupd?', mis à jour le '+new Date(it.pupd).toLocaleDateString('fr-FR'):''}. Cardmarket calcule ce guide toutes langues confondues : le prix d'un exemplaire FR peut être différent, vérifie avec le filtre « Français » sur Cardmarket.</p>
+  <p class="note">Guide de prix Cardmarket via TCGdex${it.pupd?', mis à jour le '+new Date(it.pupd).toLocaleDateString('fr-FR'):''}. Ces moyennes mélangent tous les états (Near Mint, abîmées…) et toutes les langues : une carte Near Mint en français se vend souvent plus cher. Pour le prix exact, regarde les annonces sur Cardmarket avec les filtres « Français » et « Near Mint ». Tu peux changer le prix affiché dans Réglages.</p>
   <div class="row"><div class="qty"><button data-q="-1" aria-label="Retirer un exemplaire">−</button><b>${it.qty}</b><button data-q="1" aria-label="Ajouter un exemplaire">+</button></div>
    <button class="grow" id="dCm">Voir sur Cardmarket ↗</button></div>
   <details><summary>Détails de la carte</summary>
@@ -826,7 +837,7 @@ function renderCol(){
     :`<div class="empty" style="grid-column:1/-1">${items.length?'Aucune carte ne correspond.':'Ta collection est vide. Scanne ta première carte !'}</div>`;
   $('#grid').querySelectorAll('.cell').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
   const up=items.map(i=>i.updated||0).filter(Boolean);
-  $('#colNote').textContent=up.length?'Prix actualisés le '+new Date(Math.min(...up)).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' au plus tôt. Valeur = tendance Cardmarket × exemplaires.':'';
+  $('#colNote').textContent=up.length?'Prix actualisés le '+new Date(Math.min(...up)).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' au plus tôt. Valeur = '+PRICE_MODES[priceMode()][0].toLowerCase()+' × exemplaires.':'';
 }
 $('#filter').oninput=renderCol;$('#sort').onchange=renderCol;
 $('#tabCards').onclick=()=>{colTab='cards';renderCol()};
@@ -847,6 +858,9 @@ function applyTheme(){const t=THEMES[prefs.theme]?prefs.theme:'rouge';
   document.querySelectorAll('.themes [data-theme]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.theme===t));$('#themeName').textContent=THEMES[t][1]}
 document.querySelectorAll('.themes [data-theme]').forEach(b=>b.onclick=()=>{prefs.theme=b.dataset.theme;try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch(e){}applyTheme();vib(15)});
 applyTheme();
+function syncPrice(){const m=priceMode();document.querySelectorAll('#priceSeg [data-price]').forEach(b=>{b.classList.toggle('on',b.dataset.price===m);b.setAttribute('aria-checked',b.dataset.price===m)});$('#priceDesc').textContent=PRICE_MODES[m][1]}
+document.querySelectorAll('#priceSeg [data-price]').forEach(b=>b.onclick=()=>{prefs.price=b.dataset.price;try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch(e){}syncPrice();renderCol();vib(15)});
+syncPrice();
 function syncPrefs(){document.querySelectorAll('[data-pref]').forEach(b=>{const on=!!prefs[b.dataset.pref];b.setAttribute('aria-pressed',on);b.textContent=on?'ON':'OFF'})}
 document.querySelectorAll('[data-pref]').forEach(b=>b.onclick=()=>{prefs[b.dataset.pref]=!prefs[b.dataset.pref];try{localStorage.setItem(PREFS,JSON.stringify(prefs))}catch(e){}syncPrefs();if(b.dataset.pref==='sound')beep();else vib(40)});
 $('#menuBtn').onclick=()=>{syncPrefs();$('#menu').classList.add('on')};
