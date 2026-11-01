@@ -20,7 +20,7 @@ input,select{font:inherit;color:var(--fg);background:var(--pn2);border:1px solid
 .view.on{display:block}
 /* scanner */
 #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
-#frame{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--sa) + 64px);aspect-ratio:63/88;width:min(70vw,calc((100dvh - var(--sa) - var(--sb) - 300px) * 63 / 88));border-radius:4.6%/3.3%;box-shadow:0 0 0 200vmax rgba(5,6,10,.62);pointer-events:none}
+#frame{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--sa) + 64px);aspect-ratio:63/88;width:min(64vw,calc((100dvh - var(--sa) - var(--sb) - 300px) * 63 / 88));border-radius:4.6%/3.3%;box-shadow:0 0 0 200vmax rgba(5,6,10,.62);pointer-events:none}
 #frame i{position:absolute;width:26px;height:26px;border:3px solid var(--fg);opacity:.9}
 #frame i:nth-child(1){left:-3px;top:-3px;border-right:0;border-bottom:0;border-top-left-radius:14px}
 #frame i:nth-child(2){right:-3px;top:-3px;border-left:0;border-bottom:0;border-top-right-radius:14px}
@@ -131,7 +131,7 @@ summary{cursor:pointer;font-weight:600;min-height:28px}
   <div id="result" role="status">
     <img alt="">
     <div class="t"><div class="n"></div><div class="s"></div><div class="p"></div></div>
-    <div class="act"><button id="rDetail">Détails ›</button><button id="rUndo" class="ghost">Annuler</button></div>
+    <div class="act"><button id="rDetail">Détails ›</button><button id="rAlt" hidden>Autre version ?</button><button id="rUndo" class="ghost">Annuler</button></div>
   </div>
 </section>
 
@@ -154,6 +154,11 @@ summary{cursor:pointer;font-weight:600;min-height:28px}
   <div id="dBody"></div>
 </div></div>
 
+<div class="sheet" id="alts"><div class="box" role="dialog" aria-modal="true" aria-label="Autres versions">
+  <div class="bar"><h3>Pas la bonne version ?</h3><button class="icon" data-close aria-label="Fermer">✕</button></div>
+  <p class="note">Ces cartes ont une illustration identique ou très proche (rééditions, promos). Touche celle que tu as.</p>
+  <div class="res" id="ares"></div>
+</div></div>
 <div class="sheet" id="search"><div class="box" role="dialog" aria-modal="true" aria-label="Chercher une carte">
   <div class="bar"><h3>Chercher une carte</h3><button class="icon" data-close aria-label="Fermer">✕</button></div>
   <input id="q" placeholder="Nom (ex. Dracaufeu) et/ou numéro (ex. 006/165)" autocomplete="off">
@@ -167,11 +172,10 @@ summary{cursor:pointer;font-weight:600;min-height:28px}
   <button class="pri" id="go">Lancer le scanner</button>
   <button id="goCol" class="ghost">Voir ma collection</button>
   <p class="err" id="gerr" role="alert"></p>
-  <p style="font-size:11px">Catalogue, images et prix : API publique TCGdex (guide de prix Cardmarket). Lecture du texte : Tesseract.js, sur ton appareil. Aucune image n'est envoyée. Application non officielle.</p>
+  <p style="font-size:11px">Catalogue, images et prix : API publique TCGdex (guide de prix Cardmarket). La reconnaissance se fait sur ton appareil : aucune image n'est envoyée. Application non officielle.</p>
 </div></div>
 <div id="toast" role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 'use strict';
 const API='https://api.tcgdex.net/v2/fr', STORE='cartoscan.col.v1';
@@ -189,12 +193,9 @@ try{col=JSON.parse(localStorage.getItem(STORE)||'{}')||{}}catch(e){col={}}
 function save(){try{localStorage.setItem(STORE,JSON.stringify(col))}catch(e){toast('Sauvegarde impossible sur cet appareil')}}
 
 /* ---------- catalogue ---------- */
-let CARDS=[], SETS={}, NAMES=[];
+let CARDS=[], SETS={};
 const POCKET=/^(A\d+[a-z]?|B\d+[a-z]?|P-[AB])$/; // cartes numériques TCG Pocket exclues
 const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-const SUFFIX=new Set(['ex','gx','v','vmax','vstar','break','lv','x','prime','legende','turbo','tag','team','radieux','obscur']);
-const baseName=n=>n.split(' ').filter(w=>!SUFFIX.has(w)).join(' ')||n;
-const tri=s=>{const o=[];for(let i=0;i+3<=s.length;i++)o.push(s.substr(i,3));return o};
 const numKey=s=>String(s||'').toUpperCase().replace(/^([A-Z]*)0*(\d+)$/,'$1$2');
 
 async function cachedJSON(url,maxAgeDays){
@@ -212,111 +213,153 @@ function loadCatalog(){
   return catalogP||(catalogP=(async()=>{
     const [cards,sets]=await Promise.all([cachedJSON(API+'/cards',3),cachedJSON(API+'/sets',3)]);
     for(const s of sets)SETS[s.id]={name:s.name,off:s.cardCount?.official||0,tot:s.cardCount?.total||0};
-    const byName=new Map();
     for(const c of cards){
       const setId=c.id.endsWith('-'+c.localId)?c.id.slice(0,-c.localId.length-1):c.id.slice(0,c.id.lastIndexOf('-'));
       if(POCKET.test(setId))continue;
       const o={id:c.id,lid:c.localId,nk:numKey(decodeURIComponent(c.localId)),name:c.name,set:setId,img:c.image||null};
       CARDS.push(o);
-      const n=norm(c.name);if(!n)continue;
-      let e=byName.get(n);if(!e){const b=baseName(n);e={n,b,t:tri(b.length>=5?b:n),cards:[]};byName.set(n,e)}
-      e.cards.push(o);
     }
-    NAMES=[...byName.values()];
   })().catch(e=>{catalogP=null;throw e}));
 }
 
-/* ---------- fuzzy text ---------- */
-function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=new Array(n+1),q=new Array(n+1);for(let j=0;j<=n;j++)p[j]=j;
-  for(let i=1;i<=m;i++){q[0]=i;const ca=a.charCodeAt(i-1);for(let j=1;j<=n;j++)q[j]=Math.min(p[j]+1,q[j-1]+1,p[j-1]+(ca===b.charCodeAt(j-1)?0:1));[p,q]=[q,p]}return p[n]}
-function fz(text,name){
-  const L=name.length;if(!L||!text)return 0;
-  if(L<=4)return new RegExp('(^| )'+name+'( |$)').test(text)?1:0;
-  let best=L;
-  if(text.length<L-1)best=lev(text,name);
-  else for(let w=L-1;w<=L+1;w++)for(let i=0;i+w<=text.length;i++){const d=lev(text.substr(i,w),name);if(d<best){best=d;if(!d)return 1}}
-  return 1-best/L;
+/* ---------- index visuel : empreintes précalculées de toutes les cartes ---------- */
+const TW=32,TH=44;
+function findCard(px,W,H){
+  const w=W>>1,h=H>>1,g=new Float32Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let s=0;for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){const i=((2*y+dy)*W+2*x+dx)*4;s+=px[i]*.3+px[i+1]*.59+px[i+2]*.11}g[y*w+x]=s/4}
+  const cp=new Float32Array(w),rp=new Float32Array(h);
+  for(let y=Math.floor(h*.3);y<h*.7;y++)for(let x=1;x<w-1;x++)cp[x]+=Math.abs(g[y*w+x+1]-g[y*w+x-1]);
+  for(let y=1;y<h-1;y++)for(let x=Math.floor(w*.3);x<w*.7;x++)rp[y]+=Math.abs(g[(y+1)*w+x]-g[(y-1)*w+x]);
+  const m=1/12; // bord du cadre dans la zone (zone = cadre +20 %)
+  const best=(p,n,lo,hi,exp)=>{let b=-1,bv=0;for(let i=Math.max(1,Math.floor(lo*n));i<Math.min(n-1,hi*n);i++){const v=p[i]*(1-Math.min(1,Math.abs(i/n-exp)/.22));if(v>bv){bv=v;b=i}}return b};
+  let l=best(cp,w,0,.32,m),r=best(cp,w,.68,1,1-m),t=best(rp,h,0,.3,m),b=best(rp,h,.7,1,1-m);
+  const A=63/88*(H/W); // largeur/hauteur attendue en unités normalisées... (en pixels zone)
+  const okH=l>0&&r>0&&(r-l)>w*.55, okV=t>0&&b>0&&(b-t)>h*.55;
+  let L=l/w,R_=r/w,T=t/h,B=b/h;
+  const asp=x=>x; // ratio pixels: (R-L)*W / ((B-T)*H) ≈ 63/88
+  const ratio=okH&&okV?((R_-L)*W)/((B-T)*H)/(63/88):0;
+  if(okH&&okV&&ratio>.88&&ratio<1.12)return{x:L*W,y:T*H,w:(R_-L)*W,h:(B-T)*H,q:2};
+  if(okH){const cw=(R_-L)*W,ch=cw*88/63,cy=okV?((T+B)/2)*H:H/2;return{x:L*W,y:cy-ch/2,w:cw,h:ch,q:1}}
+  if(okV){const ch=(B-T)*H,cw=ch*63/88,cx=W/2;return{x:cx-cw/2,y:T*H,w:cw,h:ch,q:1}}
+  return{x:W*m,y:H*m,w:W*(1-2*m),h:H*(1-2*m),q:0};
 }
-function nameScore(text,entryOrName){
-  const n=typeof entryOrName==='string'?norm(entryOrName):entryOrName.n, b=typeof entryOrName==='string'?baseName(n):entryOrName.b;
-  return Math.max(fz(text,n),b!==n?fz(text,b)*.97:0);
+function thumbFrom(px,W,H,rc){ // moyenne par blocs du rectangle rc vers TW x TH RGB
+  const out=new Float32Array(TW*TH*3);
+  for(let ty=0;ty<TH;ty++){const y0=Math.max(0,Math.floor(rc.y+ty*rc.h/TH)),y1=Math.min(H,Math.max(y0+1,Math.floor(rc.y+(ty+1)*rc.h/TH)));
+   for(let tx=0;tx<TW;tx++){const x0=Math.max(0,Math.floor(rc.x+tx*rc.w/TW)),x1=Math.min(W,Math.max(x0+1,Math.floor(rc.x+(tx+1)*rc.w/TW)));
+    let r=0,g=0,b=0,n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*W+x)*4;r+=px[i];g+=px[i+1];b+=px[i+2];n++}
+    const k=(ty*TW+tx)*3;n=n||1;out[k]=r/n;out[k+1]=g/n;out[k+2]=b/n}}
+  return out;
+}
+// descripteur : grille GX x GY sur la partie intérieure du thumb (marge MB cellules), normalisée par canal, en int8
+const GX=8,GY=11,MB=1,DL=GX*GY*3;
+function descOf(th){
+  const v=new Float32Array(DL),iw=TW-2*MB,ih=TH-2*MB;
+  for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){const x0=MB+Math.floor(gx*iw/GX),x1=MB+Math.floor((gx+1)*iw/GX),y0=MB+Math.floor(gy*ih/GY),y1=MB+Math.floor((gy+1)*ih/GY);
+    let r=0,g=0,b=0,n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*TW+x)*3;r+=th[i];g+=th[i+1];b+=th[i+2];n++}
+    const k=(gy*GX+gx)*3;v[k]=r/n;v[k+1]=g/n;v[k+2]=b/n}
+  const q=new Int8Array(DL);
+  for(let c=0;c<3;c++){let m=0,s=0;const N=GX*GY;for(let i=c;i<DL;i+=3)m+=v[i];m/=N;for(let i=c;i<DL;i+=3)s+=(v[i]-m)**2;s=Math.sqrt(s/N)||1;
+    for(let i=c;i<DL;i+=3)q[i]=Math.max(-127,Math.min(127,Math.round((v[i]-m)/s*40)))}
+  return q;
+}
+function nearest(q,IDX,n,k){ // IDX Int8Array n*DL ; retourne top k [score,index]
+  const top=[];let min=-1e9;
+  for(let j=0,o=0;j<n;j++,o+=DL){let s=0;for(let i=0;i<DL;i++)s+=q[i]*IDX[o+i];
+    if(top.length<k||s>min){top.push([s,j]);top.sort((a,b)=>b[0]-a[0]);if(top.length>k)top.pop();min=top[top.length-1][0]}}
+  return top.map(([s,j])=>[s/(DL*1600),j]);
+}
+let IDX=null,IDS=null,NIDX=0,idxP=null;
+async function cachedBin(url){
+  let c=null;try{c=await caches.open('cartoscan-v1');const r=await c.match(url);if(r)return await r.arrayBuffer()}catch(e){c=null}
+  const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);const b=await r.arrayBuffer();
+  try{c&&await c.put(url,new Response(b.slice(0)))}catch(e){}
+  return b;
+}
+function loadIndex(){
+  return idxP||(idxP=(async()=>{
+    const [meta,bin]=await Promise.all([cachedJSON('cartes-pokemon-index.json?v=1',3650),cachedBin('cartes-pokemon-index.bin?v=1')]);
+    if(meta.dl!==DL)throw new Error('index incompatible');
+    IDS=meta.ids;IDX=new Int8Array(bin);NIDX=IDS.length;
+  })().catch(e=>{idxP=null;throw e}));
 }
 
-/* ---------- image descriptor (illustration) ---------- */
-const DW=14,DH=20,dcv=document.createElement('canvas');dcv.width=140;dcv.height=200;
-const dctx=dcv.getContext('2d',{willReadFrequently:true});
-function descFrom(src,sx,sy,sw,sh){
-  dctx.drawImage(src,sx,sy,sw,sh,0,0,140,200);
-  const d=dctx.getImageData(0,0,140,200).data,v=new Float32Array(DW*DH*3);
-  for(let gy=0;gy<DH;gy++)for(let gx=0;gx<DW;gx++){let r=0,g=0,b=0,n=0;
-    for(let y=gy*10;y<gy*10+10;y+=2)for(let x=gx*10;x<gx*10+10;x+=2){const i=(y*140+x)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++}
-    const k=(gy*DW+gx)*3;v[k]=r/n;v[k+1]=g/n;v[k+2]=b/n}
-  for(let c=0;c<3;c++){let m=0,s=0;const N=DW*DH;for(let i=c;i<v.length;i+=3)m+=v[i];m/=N;for(let i=c;i<v.length;i+=3)s+=(v[i]-m)**2;s=Math.sqrt(s/N)||1;for(let i=c;i<v.length;i+=3)v[i]=(v[i]-m)/s}
-  return v;
-}
-const simD=(a,b)=>{let s=0;for(let i=0;i<a.length;i++)s+=a[i]*b[i];return s/a.length};
-const DESC=new Map();
-function cardDesc(c){
-  if(DESC.has(c.id))return DESC.get(c.id);
-  const p=new Promise(res=>{if(!c.img)return res(null);const im=new Image();im.crossOrigin='anonymous';
-    im.onload=()=>{try{res(descFrom(im,0,0,im.naturalWidth,im.naturalHeight))}catch(e){res(null)}};im.onerror=()=>res(null);im.src=c.img+'/low.webp'});
-  DESC.set(c.id,p);p.then(v=>{if(!v)DESC.delete(c.id)});return p;
-}
-async function rankByImage(camD,cands){
-  const out=[];let i=0;
-  await Promise.all(Array.from({length:6},async()=>{while(i<cands.length){const c=cands[i++];const d=await cardDesc(c);if(d)out.push({c,s:simD(camD,d)})}}));
-  return out.sort((a,b)=>b.s-a.s);
-}
-
-/* ---------- camera + OCR ---------- */
+/* ---------- caméra & reconnaissance en continu ---------- */
 const video=$('#video'),frame=$('#frame'),statusEl=$('#status');
-let stream=null,track=null,wName=null,wNum=null,running=false,cycle=0;
-function setStatus(t){statusEl.textContent=t}
+let stream=null,track=null,running=false;
+function setStatus(t){if(statusEl.textContent!==t)statusEl.textContent=t}
 function placeStatus(){const r=frame.getBoundingClientRect();statusEl.style.top=(r.bottom+12)+'px'}
 addEventListener('resize',placeStatus);
-
 async function startCamera(){
   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
   video.srcObject=stream;await video.play().catch(()=>{});
   track=stream.getVideoTracks()[0];
-  try{const cap=track.getCapabilities?.()||{};
-    if(cap.focusMode&&cap.focusMode.includes('continuous'))track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
+  try{const cap=track.getCapabilities?.()||{},adv=[];
+    if(cap.focusMode&&cap.focusMode.includes('continuous'))adv.push({focusMode:'continuous'});
+    if(cap.zoom&&cap.zoom.max>=1.5)adv.push({zoom:Math.min(cap.zoom.max,1.6)}); // permet de tenir la carte plus loin, donc nette
+    if(adv.length)track.applyConstraints({advanced:adv}).catch(()=>{});
     if(cap.torch)$('#torch').hidden=false}catch(e){}
 }
 $('#torch').onclick=async()=>{const b=$('#torch'),on=!b.classList.contains('on');try{await track.applyConstraints({advanced:[{torch:on}]});b.classList.toggle('on',on)}catch(e){toast('Lampe indisponible')}};
 
-async function startOCR(){
-  if(wName)return;
-  const T=window.Tesseract;if(!T)throw new Error('Tesseract non chargé');
-  [wName,wNum]=await Promise.all([T.createWorker('fra'),T.createWorker('eng')]);
-  await wNum.setParameters({tessedit_char_whitelist:'0123456789/ABCDEFGHIJKLMNOPQRSTUVWXYZ',tessedit_pageseg_mode:'11'});
-  await wName.setParameters({tessedit_pageseg_mode:'6'});
-}
-// rectangle du cadre en pixels vidéo
-function frameRect(){
-  const vw=video.videoWidth,vh=video.videoHeight;if(!vw)return null;
+const ZW=288,ZH=402,zcv=document.createElement('canvas');zcv.width=ZW;zcv.height=ZH;
+const zctx=zcv.getContext('2d',{willReadFrequently:true});
+// zone analysée = cadre + 10 % de chaque côté, en pixels vidéo
+function zoneRect(){
+  const vw=video.videoWidth,vh=video.videoHeight;if(!vw||video.readyState<2)return null;
   const ew=video.clientWidth,eh=video.clientHeight,sc=Math.max(ew/vw,eh/vh),ox=(ew-vw*sc)/2,oy=(eh-vh*sc)/2;
   const r=frame.getBoundingClientRect(),v=video.getBoundingClientRect();
-  return{x:(r.left-v.left-ox)/sc,y:(r.top-v.top-oy)/sc,w:r.width/sc,h:r.height/sc};
+  let x=(r.left-v.left-ox)/sc,y=(r.top-v.top-oy)/sc,w=r.width/sc,h=r.height/sc;
+  x-=w/10;y-=h/10;w*=1.2;h*=1.2;
+  if(x<0||y<0||x+w>vw||y+h>vh){const k=Math.min(1,(vw)/w,(vh)/h);w*=k;h*=k;x=Math.max(0,Math.min(vw-w,x));y=Math.max(0,Math.min(vh-h,y))}
+  return{x,y,w,h};
 }
-function band(F,x0,y0,x1,y1,scale){
-  const sw=F.w*(x1-x0),sh=F.h*(y1-y0),c=document.createElement('canvas');
-  c.width=Math.max(1,Math.round(sw*scale));c.height=Math.max(1,Math.round(sh*scale));
-  const g=c.getContext('2d',{willReadFrequently:true});g.imageSmoothingQuality='high';
-  g.drawImage(video,F.x+F.w*x0,F.y+F.h*y0,sw,sh,0,0,c.width,c.height);
-  const id=g.getImageData(0,0,c.width,c.height),d=id.data,h=new Uint32Array(256),N=d.length/4;
-  for(let i=0;i<d.length;i+=4){const y=(d[i]*.3+d[i+1]*.59+d[i+2]*.11)|0;d[i]=y;h[y]++}
-  let lo=0,hi=255,a=0;while(lo<255&&(a+=h[lo])<N*.02)lo++;a=0;while(hi>0&&(a+=h[hi])<N*.02)hi--;
-  const k=255/Math.max(20,hi-lo);
-  for(let i=0;i<d.length;i+=4){const y=Math.max(0,Math.min(255,(d[i]-lo)*k));d[i]=d[i+1]=d[i+2]=y}
-  g.putImageData(id,0,0);return c;
+let seen=[],lastAdd=null,lastResult=0,busyAdd=false;
+function loop(){
+  if(running)return;running=true;
+  const run=()=>{
+    if(!running)return;
+    if(!document.hidden&&$('#scan').classList.contains('on')&&!$('.sheet.on')){try{step()}catch(e){console.warn(e)}}
+    setTimeout(()=>requestAnimationFrame(run),80);
+  };run();
 }
-function variance(F){
-  const c=document.createElement('canvas');c.width=40;c.height=56;const g=c.getContext('2d',{willReadFrequently:true});
-  g.drawImage(video,F.x,F.y,F.w,F.h,0,0,40,56);const d=g.getImageData(0,0,40,56).data;let m=0,s=0,n=d.length/4;
-  for(let i=0;i<d.length;i+=4)m+=d[i]*.3+d[i+1]*.59+d[i+2]*.11;m/=n;for(let i=0;i<d.length;i+=4)s+=(d[i]*.3+d[i+1]*.59+d[i+2]*.11-m)**2;return Math.sqrt(s/n);
+function step(){
+  const Z=zoneRect();if(!Z||!IDX)return;
+  zctx.drawImage(video,Z.x,Z.y,Z.w,Z.h,0,0,ZW,ZH);
+  const px=zctx.getImageData(0,0,ZW,ZH).data,rc=findCard(px,ZW,ZH);
+  const top=nearest(descOf(thumbFrom(px,ZW,ZH,rc)),IDX,NIDX,6);
+  // écart avec la 1re carte d'illustration différente (les rééditions identiques deviennent des « autres versions »)
+  const diff=top.find(x=>pairSim(top[0][1],x[1])<.9);
+  const now=performance.now(),f={j:top[0][1],s:top[0][0],m:top[0][0]-(diff?diff[0]:top[top.length-1][0]-.05),q:rc.q,t:now,top};
+  seen.push(f);while(seen.length>6)seen.shift();
+  if(lastAdd&&f.j===lastAdd.j&&f.s>=0.6)lastAdd.t=now; // la carte déjà ajoutée est toujours là
+  const pick=decide(now);
+  if(!pick){
+    frame.className=rc.q===2?'busy':'';
+    if(now-lastResult>2500)setStatus(rc.q===2?'Analyse… tiens la carte immobile':'Place une carte dans le cadre');
+    return;
+  }
+  if(lastAdd&&lastAdd.j===pick.j&&now-lastAdd.t<2500){frame.className='hit';return}
+  if(busyAdd)return;
+  lastAdd={j:pick.j,t:now};lastResult=now;seen=[];
+  const alts=pick.top.filter(x=>x[1]!==pick.j&&(pairSim(pick.j,x[1])>=.9||x[0]>=pick.s-.03)).map(x=>IDS[x[1]]);
+  addScanned(briefOf(IDS[pick.j]),alts);
 }
-const NUMV=[[0,.86,1,.99,3],[0,.87,.52,.99,4],[.48,.87,1,.99,4]];
+function pairSim(a,b){let s=0;const oa=a*DL,ob=b*DL;for(let i=0;i<DL;i++)s+=IDX[oa+i]*IDX[ob+i];return s/(DL*1600)}
+// vote sur les dernières images : même carte en tête plusieurs fois, score et écart suffisants
+function decide(now){
+  const rec=seen.filter(f=>now-f.t<1500);if(rec.length<2)return null;
+  const cnt=new Map();for(const f of rec){const a=cnt.get(f.j)||[];a.push(f);cnt.set(f.j,a)}
+  for(const [j,a] of cnt){
+    const ms=a.reduce((x,f)=>x+f.s,0)/a.length,mm=Math.max(...a.map(f=>f.m));
+    if((a.length>=3&&ms>=0.6&&mm>=0.03)||(a.length>=2&&ms>=0.8&&mm>=0.06)){const b=a[a.length-1];return{j,s:b.s,top:b.top}}
+  }
+  return null;
+}
+function briefOf(id){
+  const c=CARDS.find(x=>x.id===id);if(c)return c;
+  const i=id.lastIndexOf('-');return{id,name:'Carte '+id,lid:id.slice(i+1),set:id.slice(0,i),img:null};
+}
 function parseNumbers(t){
   const out=[];t=t.toUpperCase().replace(/\s*\/\s*/g,'/');
   for(const m of t.matchAll(/([A-Z]{0,2})(\d{1,3})\/([A-Z]{0,2})(\d{2,3})/g)){
@@ -325,59 +368,6 @@ function parseNumbers(t){
     if(!tot||tot<10)continue;out.push({nk:numKey(pre+num),tot,raw:(pre+num)+'/'+m[3]+m[4]});
   }
   return out;
-}
-
-let pending=null,lastAdd=null,lastResult=null,readHint=0;
-async function loop(){
-  if(running)return;running=true;
-  while(running){
-    if(document.hidden||!$('#scan').classList.contains('on')||$('.sheet.on')){await sleep(400);continue}
-    const F=frameRect();
-    if(!F||!wName||!CARDS.length){await sleep(300);continue}
-    try{await step(F)}catch(e){console.warn(e)}
-    await sleep(120);
-  }
-}
-async function step(F){
-  if(variance(F)<16){frame.className='';if(!lastResult||Date.now()-lastResult>2500)setStatus('Place une carte dans le cadre');pending=null;await sleep(350);return}
-  frame.className='busy';
-  const camD=descFrom(video,F.x,F.y,F.w,F.h);
-  const v=NUMV[cycle++%NUMV.length];
-  const [rn,rd]=await Promise.all([wName.recognize(band(F,0,.015,.82,.13,900/(F.w*.82))),wNum.recognize(band(F,v[0],v[1],v[2],v[3],v[4]))]);
-  const text=norm(rn.data.text),nums=parseNumbers(rd.data.text);
-  const hit=await match(text,nums,camD);
-  if(!hit){frame.className='busy';
-    if(Date.now()-readHint>2600&&(!lastResult||Date.now()-lastResult>2500)){readHint=Date.now();setStatus(['Lecture… tiens la carte bien à plat','Lecture… évite les reflets','Lecture… remplis bien le cadre'][(cycle/3|0)%3])}
-    return}
-  // confirmation : même carte lue deux fois de suite, ou lecture très sûre
-  const now=Date.now();
-  if(lastAdd&&lastAdd.id===hit.c.id&&now-lastAdd.t<5000){lastAdd.t=now;frame.className='hit';return}
-  if(hit.sure||(pending&&pending.id===hit.c.id&&now-pending.t<5000)){pending=null;await addScanned(hit.c);lastAdd={id:hit.c.id,t:Date.now()}}
-  else{pending={id:hit.c.id,t:now};setStatus('Repérée : '+hit.c.name+' — ne bouge pas…')}
-}
-async function match(text,nums,camD){
-  let byNum=[];
-  for(const n of nums){const cs=CARDS.filter(c=>c.nk===n.nk&&SETS[c.set]&&(SETS[c.set].off===n.tot||SETS[c.set].tot===n.tot));byNum.push(...cs)}
-  byNum=[...new Map(byNum.map(c=>[c.id,c])).values()];
-  if(byNum.length){
-    const sc=byNum.map(c=>({c,ns:nameScore(text,c.name)})).sort((a,b)=>b.ns-a.ns);
-    const good=sc.filter(x=>x.ns>=.55);
-    if(good.length===1)return{c:good[0].c,sure:good[0].ns>=.72};
-    if(good.length>1){const r=await rankByImage(camD,good.map(x=>x.c));if(r.length&&r[0].s>.3)return{c:r[0].c,sure:r[0].s>.5}}
-    if(byNum.length<=12){const r=await rankByImage(camD,byNum);if(r.length&&r[0].s>.5&&(r.length<2||r[0].s-r[1].s>.08))return{c:r[0].c,sure:false}}
-  }
-  if(text.length<3)return null;
-  const tt=new Set(tri(text));let sc=[];
-  for(const e of NAMES){if(e.b.length>=5&&!e.t.some(t=>tt.has(t)))continue;const s=nameScore(text,e);if(s>=.72)sc.push({e,s})}
-  if(!sc.length)return null;
-  sc.sort((a,b)=>b.s-a.s);const top=sc[0].s;sc=sc.filter(x=>x.s>=top-.06);
-  const cands=sc.flatMap(x=>x.e.cards).filter(c=>c.img).slice(0,160);
-  if(!cands.length)return null;
-  if(cands.length>20)setStatus('Comparaison des illustrations ('+sc[0].e.cards[0].name+')…');
-  const r=await rankByImage(camD,cands);
-  if(r.length&&r[0].s>.5&&(r.length<2||r[0].s-r[1].s>.1))return{c:r[0].c,sure:false};
-  setStatus(sc[0].e.cards[0].name+' ? Montre bien le numéro en bas');
-  return null;
 }
 
 /* ---------- carte détaillée & prix ---------- */
@@ -401,13 +391,13 @@ function applyCard(it,c){
 }
 const priceOf=it=>{const p=it.pr?.[it.finish];return p?(p.trend??p.avg??p.avg7??p.avg30??p.low):null};
 
-let undoKey=null;
-async function addScanned(brief,silent){
+let undoKey=null,curAlts=[];
+async function addScanned(brief,alts){
   setStatus('Reconnue : '+brief.name);frame.className='hit';
   try{navigator.vibrate?.(60)}catch(e){}beep();
   let it=col[brief.id];const isNew=!it;
   if(!it)it={id:brief.id,name:brief.name,img:brief.img,qty:0,added:Date.now()};
-  it.qty++;it.last=Date.now();col[brief.id]=it;save();undoKey=brief.id;
+  it.qty++;it.last=Date.now();col[brief.id]=it;save();undoKey=brief.id;curAlts=alts||[];$('#rAlt').hidden=!curAlts.length;
   showResult(it,isNew);updateNav();
   try{applyCard(it,await fetchCard(brief.id));save();showResult(it,isNew);renderCol()}catch(e){toast('Prix indisponible pour le moment')}
   lastResult=Date.now();
@@ -421,7 +411,13 @@ function showResult(it,isNew){
   r.dataset.id=it.id;
 }
 $('#rDetail').onclick=()=>openDetail($('#result').dataset.id);
-$('#rUndo').onclick=()=>{const it=col[undoKey];if(!it)return;it.qty--;if(it.qty<=0)delete col[undoKey];save();$('#result').classList.remove('on');updateNav();renderCol();toast('Ajout annulé');lastAdd={id:undoKey,t:Date.now()}};
+function undoLast(){const it=col[undoKey];if(!it)return;it.qty--;if(it.qty<=0)delete col[undoKey];save();updateNav();renderCol();if(lastAdd)lastAdd.t=performance.now()}
+$('#rUndo').onclick=()=>{undoLast();$('#result').classList.remove('on');toast('Ajout annulé')};
+$('#rAlt').onclick=()=>{
+  $('#ares').innerHTML=curAlts.map(id=>{const c=briefOf(id);return `<button class="ritem" data-id="${esc(id)}"><img loading="lazy" src="${c.img?esc(c.img)+'/low.webp':''}" alt=""><div><b>${esc(c.name)}</b><span>${esc(SETS[c.set]?.name||c.set)} · n° ${esc(decodeURIComponent(c.lid))}${SETS[c.set]?.off?'/'+SETS[c.set].off:''}</span></div></button>`}).join('');
+  $('#ares').querySelectorAll('.ritem').forEach(b=>b.onclick=async()=>{$('#alts').classList.remove('on');const prev=undoKey;undoLast();const rest=[prev,...curAlts.filter(x=>x!==b.dataset.id)];await addScanned(briefOf(b.dataset.id),rest);if(lastAdd){lastAdd.j=IDS.indexOf(b.dataset.id);lastAdd.t=performance.now()}});
+  $('#alts').classList.add('on');
+};
 
 let actx=null;
 function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime;
@@ -543,10 +539,8 @@ async function boot(){
   if(!navigator.mediaDevices?.getUserMedia){err.textContent='Caméra indisponible ici : ouvre la page en HTTPS dans Safari ou Chrome.';return}
   try{await startCamera()}catch(e){err.textContent=e.name==='NotAllowedError'?'Accès à la caméra refusé. Autorise-le dans les réglages du navigateur puis réessaie.':'Impossible d\'ouvrir la caméra ('+e.name+').';$('#gate').style.display='grid';return}
   $('#gate').style.display='none';show('scan');placeStatus();
-  setStatus('Chargement du catalogue des cartes…');
-  try{await loadCatalog()}catch(e){setStatus('Catalogue indisponible : vérifie ta connexion');return}
-  setStatus('Préparation de la lecture (1re fois : ~15 Mo)…');
-  try{await startOCR()}catch(e){setStatus('Lecture du texte indisponible. Utilise la recherche ⌕');return}
+  setStatus('Chargement des empreintes des cartes (1re fois : quelques Mo)…');
+  try{await Promise.all([loadIndex(),loadCatalog()])}catch(e){setStatus('Chargement impossible : vérifie ta connexion');return}
   setStatus('Place une carte dans le cadre');loop();refreshPrices(false);
 }
 updateNav();
